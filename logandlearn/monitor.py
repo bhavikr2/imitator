@@ -33,6 +33,7 @@ class FunctionMonitor:
         self.max_calls_per_minute = max_calls_per_minute
         self._call_counts = defaultdict(list)  # Track calls per function
         self._lock = threading.Lock()
+        self._active_threads = set()  # Track active save threads
         
         # Import here to avoid circular imports
         import random
@@ -208,8 +209,8 @@ class FunctionMonitor:
                     io_record=io_record
                 )
                 
-                # Save to storage concurrently
-                asyncio.create_task(self._save_async_task(function_call))
+                # Save to storage (async to minimize overhead)
+                self._save_async(function_call)
                 
                 return result
                 
@@ -231,7 +232,7 @@ class FunctionMonitor:
                 )
                 
                 # Save to storage
-                asyncio.create_task(self._save_async_task(function_call))
+                self._save_async(function_call)
                 
                 # Re-raise the exception
                 raise
@@ -296,20 +297,53 @@ class FunctionMonitor:
     
     def _save_async(self, function_call: FunctionCall):
         """Save function call asynchronously in a thread"""
-        def save_in_thread():
-            self.storage.save_call(function_call)
+        def  save_in_thread():
+            try:
+                self.storage.save_call(function_call)
+            except Exception as e:
+            finally:
+                # Remove thread from active set when done
+                with self._lock:
+                    self._active_threads.discard(thread)
         
         thread = threading.Thread(target=save_in_thread)
-        thread.daemon = True
+        thread.daemon = False  # Non-daemon so threads complete before exit
+        
+        # Add to active threads set
+        with self._lock:
+            self._active_threads.add(thread)
         thread.start()
     
-    async def _save_async_task(self, function_call: FunctionCall):
-        """Save function call as an async task"""
-        def save_in_thread():
-            self.storage.save_call(function_call)
+    def wait_for_all_saves(self, timeout: float = 5.0) -> bool:
+        """
+        Wait for all pending save operations to complete
         
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, save_in_thread)
+        Args:
+            timeout: Maximum time to wait in seconds
+            
+        Returns:
+            True if all saves completed, False if timeout occurred
+        """
+        import time
+        start_time = time.time()
+        
+        while time.time() - start_time < timeout:
+            with self._lock:
+                active_threads = list(self._active_threads)
+            
+            if not active_threads:
+                return True
+                
+            # Wait a bit for threads to complete
+            time.sleep(0.01)
+            
+            # Clean up any finished threads
+            with self._lock:
+                self._active_threads = {t for t in self._active_threads if t.is_alive()}
+        
+        return False
+    
+
 
 
 # Global monitor instance for convenience
@@ -358,4 +392,17 @@ def get_monitor(storage: Optional[LocalStorage] = None,
                 sampling_rate: float = 1.0,
                 max_calls_per_minute: Optional[int] = None) -> FunctionMonitor:
     """Get a function monitor instance"""
-    return FunctionMonitor(storage, sampling_rate, max_calls_per_minute) 
+    return FunctionMonitor(storage, sampling_rate, max_calls_per_minute)
+
+
+def wait_for_all_saves(timeout: float = 5.0) -> bool:
+    """
+    Wait for all pending save operations from the global monitor to complete
+    
+    Args:
+        timeout: Maximum time to wait in seconds
+        
+    Returns:
+        True if all saves completed, False if timeout occurred
+    """
+    return _global_monitor.wait_for_all_saves(timeout) 
