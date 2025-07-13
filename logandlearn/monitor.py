@@ -346,11 +346,8 @@ class FunctionMonitor:
 
 
 
-# Global monitor instance for convenience
-_global_monitor = FunctionMonitor()
-
-
-def monitor_function(func: Optional[Callable] = None, *, 
+def monitor_function(func: Optional[Callable] = None, *,
+                    monitor: Optional['FunctionMonitor'] = None,
                     storage: Optional[LocalStorage] = None,
                     sampling_rate: float = 1.0,
                     max_calls_per_minute: Optional[int] = None) -> Callable:
@@ -362,23 +359,30 @@ def monitor_function(func: Optional[Callable] = None, *,
     def my_func():
         pass
     
-    Or:
-    @monitor_function(sampling_rate=0.1, max_calls_per_minute=100)
+    Or with arguments:
+    @monitor_function(sampling_rate=0.1)
+    def my_func():
+        pass
+
+    For isolated testing, a monitor instance can be passed:
+    @monitor_function(monitor=my_monitor)
     def my_func():
         pass
     
     Args:
         func: Function to monitor (for direct decoration)
-        storage: Custom storage backend
-        sampling_rate: Fraction of calls to log (0.0 to 1.0)
-        max_calls_per_minute: Maximum calls to log per minute
+        monitor: An existing FunctionMonitor instance to use. If provided, other args are ignored.
+        storage: Custom storage backend (if no monitor is provided)
+        sampling_rate: Fraction of calls to log (0.0 to 1.0) (if no monitor is provided)
+        max_calls_per_minute: Maximum calls to log per minute (if no monitor is provided)
     
     Returns:
         Decorated function or decorator
     """
     def decorator(f: Callable) -> Callable:
-        monitor = FunctionMonitor(storage, sampling_rate, max_calls_per_minute)
-        return monitor.monitor(f)
+        # Use provided monitor instance if available, otherwise create a new one
+        effective_monitor = monitor if monitor is not None else FunctionMonitor(storage, sampling_rate, max_calls_per_minute)
+        return effective_monitor.monitor(f)
     
     if func is None:
         # Called with arguments: @monitor_function(sampling_rate=...)
@@ -392,17 +396,4 @@ def get_monitor(storage: Optional[LocalStorage] = None,
                 sampling_rate: float = 1.0,
                 max_calls_per_minute: Optional[int] = None) -> FunctionMonitor:
     """Get a function monitor instance"""
-    return FunctionMonitor(storage, sampling_rate, max_calls_per_minute)
-
-
-def wait_for_all_saves(timeout: float = 5.0) -> bool:
-    """
-    Wait for all pending save operations from the global monitor to complete
-    
-    Args:
-        timeout: Maximum time to wait in seconds
-        
-    Returns:
-        True if all saves completed, False if timeout occurred
-    """
-    return _global_monitor.wait_for_all_saves(timeout) 
+    return FunctionMonitor(storage, sampling_rate, max_calls_per_minute) 
