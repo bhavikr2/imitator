@@ -261,19 +261,22 @@ class FunctionMonitor:
     
     def _prepare_output(self, output: Any) -> Any:
         """Prepare output for serialization, handling complex objects"""
+        # Attempt to directly serialize if it's a basic JSON type (str, int, float, bool, None)
+        # or a composite type (list, dict) containing only such types.
+        # If it's a custom object, json.dumps will raise a TypeError, which we catch.
         try:
-            # Try to serialize with json to check if it's already serializable
             import json
-            json.dumps(output, default=str)
+            json.dumps(output) # Try to dump without a default to force TypeError for custom objects
             return output
-        except (TypeError, ValueError):
-            # If it's not serializable, convert to string representation
+        except TypeError:
+            # If it's a custom object instance, return a specific string representation.
             if hasattr(output, '__dict__'):
-                # For custom class instances, return a representation
                 return f"<{type(output).__name__} instance>"
-            else:
-                # For other non-serializable types, convert to string
-                return str(output)
+            # For any other non-serializable type, fall back to generic string representation.
+            return str(output)
+        except ValueError:
+            # Catch other potential json.dumps value errors and fall back to string.
+            return str(output)
     
     def _detect_modifications(self, before: dict, after: dict) -> Optional[dict]:
         """Detect if any input parameters were modified in-place"""

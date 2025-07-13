@@ -8,16 +8,12 @@ import asyncio
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Any
-import sys
-import os
 import random
 import statistics
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from logandlearn.monitor import get_monitor
 
 from logandlearn import monitor_function, LocalStorage
 from tests.conftest import wait_for_logs, temp_storage
-
 
 class TestPerformanceOverhead:
     """Test performance overhead of monitoring"""
@@ -192,10 +188,11 @@ class TestPerformanceOverhead:
 class TestConcurrentPerformance:
     """Test performance under concurrent load"""
     
-    def test_concurrent_monitoring_performance(self, clean_logs):
+    @pytest.mark.asyncio
+    async def test_concurrent_monitoring_performance(self, clean_logs, function_monitor):
         """Test that monitoring works well under concurrent load"""
         
-        @monitor_function
+        @monitor_function(monitor=function_monitor)
         def concurrent_function(thread_id: int, value: int) -> int:
             # Small computation to make it measurable
             result = value
@@ -234,6 +231,8 @@ class TestConcurrentPerformance:
         assert throughput > 100, f"Throughput {throughput:.0f} calls/sec should be > 100 calls/sec"
         
         # Verify all calls were logged
+        logs_completed = await wait_for_logs(function_monitor)  # Wait for all log writes to complete
+        assert logs_completed, "All log saves should complete successfully"
         storage = LocalStorage()
         calls = storage.load_calls("concurrent_function")
         assert len(calls) == total_calls, f"Should have {total_calls} calls logged"
@@ -292,8 +291,10 @@ class TestAsyncPerformance:
     """Test async performance characteristics"""
     
     @pytest.mark.asyncio
-    async def test_async_monitoring_overhead(self, clean_logs, temp_storage):
+    async def test_async_monitoring_overhead(self, clean_logs, temp_storage, function_monitor):
         """Test async monitoring overhead with CPU-intensive functions"""
+
+        function_monitor = get_monitor(storage=temp_storage)
         
         # Baseline async function (CPU-intensive)
         async def async_baseline(iterations: int) -> int:
@@ -303,7 +304,7 @@ class TestAsyncPerformance:
             return result_sum
         
         # Monitored async function (CPU-intensive)
-        @monitor_function(storage=temp_storage)
+        @monitor_function(monitor=function_monitor)
         async def async_monitored(iterations: int) -> int:
             result_sum = 0
             for i in range(iterations):
@@ -334,7 +335,8 @@ class TestAsyncPerformance:
         assert overhead_percentage < 100, f"Async Overhead {overhead_percentage:.1f}% should be less than 100%"
         
         # Verify logging worked
-        wait_for_logs()
+        logs_completed = await wait_for_logs(function_monitor)
+        assert logs_completed, "All log saves should complete successfully"
         calls = temp_storage.load_calls("async_monitored")
         assert len(calls) == num_calls_to_benchmark, f"Should have {num_calls_to_benchmark} calls logged"
     

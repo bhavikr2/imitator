@@ -4,40 +4,24 @@ Demonstration pytest tests showing key features of LogAndLearn framework
 
 import pytest
 import asyncio
-import sys
-import os
-import time
 import shutil
 from pathlib import Path
 from typing import List, Dict, Any
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from logandlearn import monitor_function, LocalStorage
+from logandlearn.monitor import get_monitor
+from tests.conftest import wait_for_logs
 
-
-def clean_test_logs():
-    """Clean logs before each test"""
-    log_dirs = ["logs", "examples/logs", "tests/logs"]
-    for log_dir in log_dirs:
-        log_path = Path(log_dir)
-        if log_path.exists():
-            shutil.rmtree(log_path)
-
-
-def wait_for_logs():
-    """Wait for daemon threads to complete logging"""
-    time.sleep(0.1)
-
+# We'll use the function_monitor fixture for explicit monitor instances
 
 class TestBasicMonitoring:
     """Demonstrate basic function monitoring with proper pytest assertions"""
     
-    def test_simple_function_with_assertions(self):
+    @pytest.mark.asyncio
+    async def test_simple_function_with_assertions(self,clean_logs, function_monitor):
         """Test that demonstrates proper pytest assertions"""
-        clean_test_logs()
         
-        @monitor_function
+        @monitor_function(monitor=function_monitor)
         def calculate_area(length: float, width: float) -> float:
             """Calculate rectangle area"""
             return length * width
@@ -51,7 +35,8 @@ class TestBasicMonitoring:
         assert area2 == 20.0, f"Expected 20.0, got {area2}"
         
         # Wait for logging to complete
-        wait_for_logs()
+        logs_completed = await wait_for_logs(function_monitor)
+        assert logs_completed, "All log saves should complete successfully"
         
         # Test that logging worked correctly
         storage = LocalStorage()
@@ -65,11 +50,11 @@ class TestBasicMonitoring:
         logged_outputs = [call.io_record.output for call in calls]
         assert set(logged_outputs) == {15.0, 20.0}, "All outputs should be logged"
     
-    def test_exception_handling_with_assertions(self):
+    @pytest.mark.asyncio
+    async def test_exception_handling_with_assertions(self, clean_logs, function_monitor):
         """Test exception handling with proper pytest expectations"""
-        clean_test_logs()
         
-        @monitor_function
+        @monitor_function(monitor=function_monitor)
         def safe_divide(numerator: float, denominator: float) -> float:
             """Divide two numbers with error checking"""
             if denominator == 0:
@@ -89,7 +74,8 @@ class TestBasicMonitoring:
         assert result2 == 5.0, "Function should continue working after exception"
         
         # Wait for logging
-        wait_for_logs()
+        logs_completed = await wait_for_logs(function_monitor)
+        assert logs_completed, "All log saves should complete successfully"
         
         # Verify logging captured everything
         storage = LocalStorage()
@@ -113,11 +99,10 @@ class TestAsyncMonitoring:
     """Test async function monitoring with pytest-asyncio"""
     
     @pytest.mark.asyncio
-    async def test_async_function_monitoring(self):
+    async def test_async_function_monitoring(self, clean_logs, function_monitor):
         """Test async function monitoring"""
-        clean_test_logs()
         
-        @monitor_function
+        @monitor_function(monitor=function_monitor)
         async def async_fetch_data(url: str, timeout: float = 1.0) -> Dict[str, Any]:
             """Simulate async data fetching"""
             await asyncio.sleep(0.01)  # Simulate network delay
@@ -146,7 +131,8 @@ class TestAsyncMonitoring:
             await async_fetch_data("https://error.example.com")
         
         # Wait for logging
-        wait_for_logs()
+        logs_completed = await wait_for_logs(function_monitor)
+        assert logs_completed, "All log saves should complete successfully"
         
         # Verify async logging worked
         storage = LocalStorage()
@@ -164,11 +150,11 @@ class TestAsyncMonitoring:
 class TestComplexDataTypes:
     """Test monitoring of functions with complex data types"""
     
-    def test_nested_data_structures(self):
+    @pytest.mark.asyncio
+    async def test_nested_data_structures(self, clean_logs, function_monitor):
         """Test monitoring functions with nested data structures"""
-        clean_test_logs()
         
-        @monitor_function
+        @monitor_function(monitor=function_monitor)
         def process_user_data(user_data: Dict[str, Any]) -> Dict[str, Any]:
             """Process complex user data structure"""
             processed = {
@@ -207,11 +193,21 @@ class TestComplexDataTypes:
         assert result["is_premium"] is True, "Should detect premium subscription"
         
         # Wait for logging
-        wait_for_logs()
+        logs_completed = await wait_for_logs(function_monitor)
+        assert logs_completed, "All log saves should complete successfully"
+        
+        # Debug: Check if logs directory exists
+        import os
+        logs_dir = Path("logs")
+        print(f"DEBUG: logs directory exists: {logs_dir.exists()}")
+        if logs_dir.exists():
+            log_files = list(logs_dir.glob("*.jsonl"))
+            print(f"DEBUG: log files found: {log_files}")
         
         # Verify complex data logging
         storage = LocalStorage()
         calls = storage.load_calls("process_user_data")
+        print(f"DEBUG: Found {len(calls)} calls")
         assert len(calls) == 1, "Should have logged the call"
         
         call = calls[0]
@@ -229,10 +225,10 @@ class TestComplexDataTypes:
 class TestPerformanceCharacteristics:
     """Test performance-related features"""
     
-    def test_sampling_functionality(self):
+    @pytest.mark.asyncio
+    async def test_sampling_functionality(self, clean_logs, function_monitor):
         """Test that sampling works as expected"""
-        clean_test_logs()
-        
+
         @monitor_function(sampling_rate=0.1)  # 10% sampling
         def high_frequency_function(x: int) -> int:
             """Function called frequently with sampling"""
@@ -250,7 +246,8 @@ class TestPerformanceCharacteristics:
         assert results[:5] == [0, 1, 4, 9, 16], "Function should compute correctly"
         
         # Wait for logging
-        wait_for_logs()
+        logs_completed = await wait_for_logs(function_monitor)
+        assert logs_completed, "All log saves should complete successfully"
         
         # Verify sampling worked
         storage = LocalStorage()
@@ -263,11 +260,13 @@ class TestPerformanceCharacteristics:
         
         print(f"Logged {len(calls)}/{num_calls} calls ({len(calls)/num_calls*100:.1f}% - expected ~10%)")
     
-    def test_rate_limiting_functionality(self):
+    @pytest.mark.asyncio
+    async def test_rate_limiting_functionality(self,clean_logs):
         """Test rate limiting functionality"""
-        clean_test_logs()
+
+        function_monitor = get_monitor(max_calls_per_minute=5)
         
-        @monitor_function(max_calls_per_minute=5)
+        @monitor_function(monitor=function_monitor)
         def rate_limited_function(message: str) -> str:
             """Function with rate limiting"""
             return f"Processed: {message}"
@@ -284,7 +283,8 @@ class TestPerformanceCharacteristics:
         assert "Processed: message_0" in results[0], "Function should work correctly"
         
         # Wait for logging
-        wait_for_logs()
+        logs_completed = await wait_for_logs(function_monitor)
+        assert logs_completed, "All log saves should complete successfully"
         
         # Verify rate limiting worked
         storage = LocalStorage()

@@ -3,8 +3,6 @@ Pytest configuration and fixtures for LogAndLearn tests
 """
 
 import pytest
-import sys
-import os
 from pathlib import Path
 import tempfile
 import glob
@@ -12,12 +10,6 @@ import time
 import asyncio
 from logandlearn.monitor import FunctionMonitor
 from logandlearn import LocalStorage
-
-
-# Add parent directory to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-
 
 def clean_test_logs():
     """Helper function to clean up test log files."""
