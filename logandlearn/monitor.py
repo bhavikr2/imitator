@@ -112,10 +112,13 @@ class FunctionMonitor:
                 inputs_after = copy.deepcopy(inputs)
                 modifications = self._detect_modifications(inputs_before, inputs_after)
                 
+                # Prepare output for serialization
+                serializable_output = self._prepare_output(result)
+                
                 # Create I/O record
                 io_record = IORecord(
                     inputs=inputs_before,
-                    output=result,
+                    output=serializable_output,
                     execution_time_ms=execution_time,
                     input_modifications=modifications if modifications else None
                 )
@@ -188,10 +191,13 @@ class FunctionMonitor:
                 inputs_after = copy.deepcopy(inputs)
                 modifications = self._detect_modifications(inputs_before, inputs_after)
                 
+                # Prepare output for serialization
+                serializable_output = self._prepare_output(result)
+                
                 # Create I/O record
                 io_record = IORecord(
                     inputs=inputs_before,
-                    output=result,
+                    output=serializable_output,
                     execution_time_ms=execution_time,
                     input_modifications=modifications if modifications else None
                 )
@@ -251,6 +257,22 @@ class FunctionMonitor:
         inputs.update(kwargs)
         
         return inputs
+    
+    def _prepare_output(self, output: Any) -> Any:
+        """Prepare output for serialization, handling complex objects"""
+        try:
+            # Try to serialize with json to check if it's already serializable
+            import json
+            json.dumps(output, default=str)
+            return output
+        except (TypeError, ValueError):
+            # If it's not serializable, convert to string representation
+            if hasattr(output, '__dict__'):
+                # For custom class instances, return a representation
+                return f"<{type(output).__name__} instance>"
+            else:
+                # For other non-serializable types, convert to string
+                return str(output)
     
     def _detect_modifications(self, before: dict, after: dict) -> Optional[dict]:
         """Detect if any input parameters were modified in-place"""
