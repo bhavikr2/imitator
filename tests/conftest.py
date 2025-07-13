@@ -9,15 +9,18 @@ from pathlib import Path
 import tempfile
 import glob
 import time
+import asyncio
+from logandlearn.monitor import FunctionMonitor
+from logandlearn import LocalStorage
+
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from logandlearn import LocalStorage
 
 
 def clean_test_logs():
-    """Helper function to clean up test log files"""
+    """Helper function to clean up test log files."""
     # Get the project root directory
     project_root = Path(__file__).parent.parent
     
@@ -40,9 +43,21 @@ def clean_test_logs():
                     pass  # Ignore errors if file doesn't exist or can't be deleted
 
 
-def wait_for_logs(timeout=2.0):
-    """Wait for daemon threads to flush logs"""
-    time.sleep(timeout)
+async def wait_for_logs(monitor: FunctionMonitor, timeout: float = 4.0) -> bool:
+    """Wait for a specific FunctionMonitor instance to finish its async log saves."""
+    start_time = asyncio.get_event_loop().time()
+    
+    while asyncio.get_event_loop().time() - start_time < timeout:
+        with monitor._lock:
+            # Clean up finished threads before checking
+            monitor._active_threads = {t for t in monitor._active_threads if t.is_alive()}
+            if not monitor._active_threads:
+                return True
+        
+        # Asynchronously wait before the next check
+        await asyncio.sleep(0.05)
+        
+    return False
 
 
 @pytest.fixture
@@ -51,6 +66,12 @@ def clean_logs():
     clean_test_logs()
     yield
     clean_test_logs()
+
+
+@pytest.fixture
+def function_monitor() -> FunctionMonitor:
+    """Fixture to provide an isolated FunctionMonitor instance for a single test."""
+    return FunctionMonitor()
 
 
 @pytest.fixture
