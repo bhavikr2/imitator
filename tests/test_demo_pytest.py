@@ -1,5 +1,5 @@
 """
-Demonstration pytest tests showing key features of LogAndLearn framework
+Demonstration pytest tests showing key features of Imitator framework
 """
 
 import pytest
@@ -8,8 +8,8 @@ import shutil
 from pathlib import Path
 from typing import List, Dict, Any
 
-from logandlearn import monitor_function, LocalStorage
-from logandlearn.monitor import get_monitor
+from imitator import monitor_function, LocalStorage
+from imitator.monitor import get_monitor
 from tests.conftest import wait_for_logs
 
 # We'll use the function_monitor fixture for explicit monitor instances
@@ -300,7 +300,7 @@ class TestPerformanceCharacteristics:
 def test_framework_summary():
     """Test that demonstrates the overall framework capabilities"""
     print("\n" + "="*60)
-    print("🎉 LogAndLearn Framework pytest Test Suite Summary")
+    print("🎉 Imitator Framework pytest Test Suite Summary")
     print("="*60)
     print("✅ Basic function monitoring with type capture")
     print("✅ Exception handling and error logging")

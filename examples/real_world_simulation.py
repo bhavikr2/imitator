@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Real-World Simulation Example - LogAndLearn Framework
+Real-World Simulation Example - Imitator Framework
 
 This example simulates real-world scenarios where function monitoring
 would be valuable, including:
@@ -25,7 +25,7 @@ from collections import defaultdict
 # Add the parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from logandlearn import monitor_function, LocalStorage
+from imitator import monitor_function, LocalStorage
 
 
 # Custom storage for simulation
@@ -767,7 +767,7 @@ def analyze_simulation_logs():
 
 def main():
     """Run all real-world simulations."""
-    print("🌟 LogAndLearn Framework - Real-World Simulation")
+    print("🌟 Imitator Framework - Real-World Simulation")
     print("=" * 60)
     
     # Run all simulations

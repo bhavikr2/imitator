@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Basic Usage Example - LogAndLearn Framework
+Basic Usage Example - Imitator Framework
 
-This example demonstrates the core functionality of the LogAndLearn framework
+This example demonstrates the core functionality of the Imitator framework
 with simple, easy-to-understand functions.
 """
 
@@ -14,7 +14,7 @@ from datetime import datetime
 # Add the parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from logandlearn import monitor_function, LocalStorage
+from imitator import monitor_function, LocalStorage
 
 
 # Example 1: Simple mathematical operations
@@ -154,8 +154,8 @@ def validate_password(password: str) -> Dict[str, Union[bool, str]]:
 
 
 def demonstrate_basic_usage():
-    """Demonstrate basic usage of the LogAndLearn framework."""
-    print("🚀 LogAndLearn Framework - Basic Usage Demo")
+    """Demonstrate basic usage of the Imitator framework."""
+    print("🚀 Imitator Framework - Basic Usage Demo")
     print("=" * 50)
     
     # Mathematical operations

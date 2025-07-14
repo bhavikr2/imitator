@@ -1,10 +1,10 @@
-# LogAndLearn
+# Imitator
 
-[![PyPI version](https://badge.fury.io/py/logandlearn.svg)](https://badge.fury.io/py/logandlearn)
+[![PyPI version](https://badge.fury.io/py/imitator.svg)](https://badge.fury.io/py/imitator)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A lightweight Python framework for monitoring function input-output pairs with automatic type validation and local storage. Perfect for collecting training data for machine learning models, debugging, performance analysis, and understanding function behavior in production systems.
+A lightweight Python framework for monitoring and imitating function behavior with automatic I/O tracking and pattern learning. Perfect for collecting training data for machine learning models, debugging, performance analysis, and understanding function behavior in production systems with future capabilities for behavior imitation.
 
 ## ✨ Features
 
@@ -22,7 +22,7 @@ A lightweight Python framework for monitoring function input-output pairs with a
 ## 🚀 Installation
 
 ```bash
-pip install logandlearn
+pip install imitator
 ```
 
 **Requirements**: Python 3.8+, Pydantic ≥2.0.0
@@ -30,7 +30,7 @@ pip install logandlearn
 ## ⚡ Quick Start
 
 ```python
-from logandlearn import monitor_function
+from imitator import monitor_function
 
 @monitor_function
 def add_numbers(a: int, b: int) -> int:
@@ -47,7 +47,7 @@ That's it! Your function calls are now being monitored and logged automatically.
 ### Basic Function Monitoring
 
 ```python
-from logandlearn import monitor_function
+from imitator import monitor_function
 from typing import List, Dict
 
 @monitor_function
@@ -72,7 +72,7 @@ result = process_data([1.0, 2.0, 3.0], 2.0)
 ### Advanced Configuration
 
 ```python
-from logandlearn import monitor_function, LocalStorage, FunctionMonitor
+from imitator import monitor_function, LocalStorage, FunctionMonitor
 
 # Custom storage location
 custom_storage = LocalStorage(log_dir="my_logs", format="json")
@@ -96,7 +96,7 @@ def high_frequency_function(x: int) -> int:
 
 ```python
 import asyncio
-from logandlearn import monitor_function
+from imitator import monitor_function
 
 @monitor_function
 async def fetch_data(url: str) -> dict:
@@ -115,7 +115,7 @@ asyncio.run(main())
 ### Class Method Monitoring
 
 ```python
-from logandlearn import monitor_function
+from imitator import monitor_function
 
 class DataProcessor:
     def __init__(self, name: str):
@@ -140,7 +140,7 @@ result = processor.process_batch([{"id": 1}, {"id": 2}])
 ### Examining Logged Data
 
 ```python
-from logandlearn import LocalStorage
+from imitator import LocalStorage
 
 storage = LocalStorage()
 
@@ -303,11 +303,11 @@ The package includes comprehensive examples demonstrating various use cases:
 ### Run Examples
 ```bash
 # Install the package
-pip install logandlearn
+pip install imitator
 
 # Clone repository for examples (if needed)
-git clone https://github.com/yourusername/logandlearn.git
-cd logandlearn/examples
+git clone https://github.com/yourusername/imitator.git
+cd imitator/examples
 
 # Run examples
 python basic_usage.py
@@ -323,8 +323,8 @@ Each example demonstrates:
 
 ## 🚀 Getting Started
 
-1. **Install**: `pip install logandlearn`
-2. **Import**: `from logandlearn import monitor_function`
+1. **Install**: `pip install imitator`
+2. **Import**: `from imitator import monitor_function`
 3. **Decorate**: Add `@monitor_function` to your functions
 4. **Run**: Use your functions normally
 5. **Analyze**: Check the generated logs in the `logs/` directory

@@ -3,8 +3,8 @@ include LICENSE
 include CHANGELOG.md
 include pyproject.toml
 include pytest.ini
-recursive-include logandlearn *.py
-recursive-include logandlearn *.typed
+recursive-include imitator *.py
+recursive-include imitator *.typed
 recursive-include examples *.py
 recursive-include tests *.py
 exclude .gitignore

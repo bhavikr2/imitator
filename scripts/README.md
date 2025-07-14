@@ -1,6 +1,6 @@
 # Scripts
 
-This directory contains utility scripts for building and maintaining the LogAndLearn package.
+This directory contains utility scripts for building and maintaining the Imitator package.
 
 ## Available Scripts
 

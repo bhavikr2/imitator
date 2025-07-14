@@ -1,10 +1,10 @@
-# Makefile for LogAndLearn package
+# Makefile for Imitator package
 
 .PHONY: help install install-dev test lint format examples build clean check upload upload-test all
 
 # Default help target
 help:
-	@echo "LogAndLearn Package Development"
+	@echo "Imitator Package Development"
 	@echo "=============================="
 	@echo
 	@echo "Available targets:"
@@ -33,17 +33,17 @@ install-dev:
 
 # Run tests
 test:
-	python -m pytest tests/ -v --cov=logandlearn --cov-report=html --cov-report=term
+	python -m pytest tests/ -v --cov=imitator --cov-report=html --cov-report=term
 
 # Run linting
 lint:
-	python -m flake8 logandlearn/ --max-line-length=88 --extend-ignore=E203
-	python -m mypy logandlearn/
+	python -m flake8 imitator/ --max-line-length=88 --extend-ignore=E203
+	python -m mypy imitator/
 
 # Format code
 format:
-	python -m black logandlearn/ tests/ examples/
-	python -m isort logandlearn/ tests/ examples/
+	python -m black imitator/ tests/ examples/
+	python -m isort imitator/ tests/ examples/
 
 # Run examples
 examples:

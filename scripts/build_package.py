@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Package build and test script for LogAndLearn
+Package build and test script for Imitator
 
 This script helps with building, testing, and preparing the package for PyPI.
 """
@@ -71,7 +71,7 @@ def clean_build_artifacts():
 def run_tests():
     """Run the test suite."""
     return run_command(
-        "python -m pytest tests/ -v --cov=logandlearn --cov-report=html --cov-report=term",
+        "python -m pytest tests/ -v --cov=imitator --cov-report=html --cov-report=term",
         "Running tests with coverage"
     )
 
@@ -79,9 +79,9 @@ def run_tests():
 def run_linting():
     """Run code linting."""
     commands = [
-        ("python -m flake8 logandlearn/ --max-line-length=88 --extend-ignore=E203", "Flake8 linting"),
-        ("python -m black --check logandlearn/", "Black code formatting check"),
-        ("python -m mypy logandlearn/", "MyPy type checking"),
+        ("python -m flake8 imitator/ --max-line-length=88 --extend-ignore=E203", "Flake8 linting"),
+        ("python -m black --check imitator/", "Black code formatting check"),
+        ("python -m mypy imitator/", "MyPy type checking"),
     ]
     
     all_passed = True
@@ -129,7 +129,7 @@ def run_examples():
 
 def main():
     """Main function."""
-    print("🚀 LogAndLearn Package Build Script")
+    print("🚀 Imitator Package Build Script")
     print("=" * 60)
     
     # Check if we're in the right directory
@@ -139,7 +139,7 @@ def main():
     
     # Parse command line arguments
     import argparse
-    parser = argparse.ArgumentParser(description="Build and test LogAndLearn package")
+    parser = argparse.ArgumentParser(description="Build and test Imitator package")
     parser.add_argument("--clean", action="store_true", help="Clean build artifacts")
     parser.add_argument("--test", action="store_true", help="Run tests")
     parser.add_argument("--lint", action="store_true", help="Run linting")
@@ -185,7 +185,7 @@ def main():
         print("🎉 All steps completed successfully!")
         print("\nNext steps:")
         print("1. Review the built package in dist/")
-        print("2. Test installation: pip install dist/logandlearn-*.whl")
+        print("2. Test installation: pip install dist/imitator-*.whl")
         print("3. Upload to PyPI: python -m twine upload dist/*")
     else:
         print("❌ Some steps failed. Please review the output above.")

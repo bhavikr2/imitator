@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **BREAKING**: Rebranded from "LogAndLearn" to "Imitator"
+- Package name changed from `logandlearn` to `imitator`
+- All import statements now use `from imitator import ...`
+- Updated description to focus on monitoring and imitation capabilities
+- Updated project URLs and metadata
+
 ### Added
 - Initial PyPI package structure
 - Comprehensive documentation and examples

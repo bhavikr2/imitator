@@ -1,14 +1,14 @@
-# Contributing to LogAndLearn
+# Contributing to Imitator
 
-We welcome contributions to LogAndLearn! This document outlines the process for contributing to the project.
+We welcome contributions to Imitator! This document outlines the process for contributing to the project.
 
 ## 🚀 Quick Start
 
 1. **Fork the repository** on GitHub
 2. **Clone your fork** locally:
    ```bash
-   git clone https://github.com/yourusername/logandlearn.git
-   cd logandlearn
+   git clone https://github.com/Imitator/Imitator.git
+   cd imitator
    ```
 3. **Set up development environment**:
    ```bash
@@ -99,7 +99,7 @@ make test
 python -m pytest tests/test_monitor.py -v
 
 # Run tests with coverage
-python -m pytest tests/ -v --cov=logandlearn --cov-report=html
+python -m pytest tests/ -v --cov=imitator --cov-report=html
 ```
 
 ### Test Structure
@@ -113,7 +113,7 @@ python -m pytest tests/ -v --cov=logandlearn --cov-report=html
 
 ```python
 import pytest
-from logandlearn import monitor_function
+from imitator import monitor_function
 
 def test_monitor_function_basic():
     """Test basic monitoring functionality."""
@@ -156,7 +156,7 @@ from typing import List, Dict
 # Add the parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from logandlearn import monitor_function
+from imitator import monitor_function
 
 # Your example code here...
 
@@ -168,11 +168,11 @@ if __name__ == "__main__":
 ## 🔧 Code Architecture
 
 ### Module Structure
-- `logandlearn/`: Main package directory
-- `logandlearn/monitor.py`: Core monitoring functionality
-- `logandlearn/storage.py`: Storage backends
-- `logandlearn/types.py`: Type definitions
-- `logandlearn/__init__.py`: Package initialization
+- `imitator/`: Main package directory
+- `imitator/monitor.py`: Core monitoring functionality
+- `imitator/storage.py`: Storage backends
+- `imitator/types.py`: Type definitions
+- `imitator/__init__.py`: Package initialization
 
 ### Key Components
 - **FunctionMonitor**: Core monitoring class
@@ -188,7 +188,7 @@ if __name__ == "__main__":
 3. **Include reproduction steps**
 4. **Provide system information**:
    - Python version
-   - LogAndLearn version
+   - Imitator version
    - Operating system
    - Relevant error messages
 
@@ -244,7 +244,7 @@ if __name__ == "__main__":
 
 - **GitHub Issues**: For bugs and feature requests
 - **GitHub Discussions**: For questions and general discussion
-- **Email**: contact@logandlearn.dev for direct contact
+- **Email**: contact@imitator.dev for direct contact
 
 ## 🏆 Recognition
 
@@ -255,8 +255,8 @@ Contributors are recognized in:
 
 ## 📜 License
 
-By contributing to LogAndLearn, you agree that your contributions will be licensed under the MIT License.
+By contributing to Imitator, you agree that your contributions will be licensed under the MIT License.
 
 ## 🙏 Thank You
 
-Thank you for considering contributing to LogAndLearn! Your contributions help make this project better for everyone. 
+Thank you for considering contributing to Imitator! Your contributions help make this project better for everyone. 

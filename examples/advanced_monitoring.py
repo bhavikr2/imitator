@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Advanced Monitoring Example - LogAndLearn Framework
+Advanced Monitoring Example - Imitator Framework
 
 This example demonstrates advanced monitoring features including:
 - Custom storage configuration
@@ -23,7 +23,7 @@ from collections import defaultdict
 # Add the parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from logandlearn import monitor_function, LocalStorage, FunctionMonitor
+from imitator import monitor_function, LocalStorage, FunctionMonitor
 
 
 # Custom storage configuration
@@ -310,7 +310,7 @@ def analyze_advanced_logs():
 
 async def main():
     """Run all advanced monitoring examples."""
-    print("🚀 LogAndLearn Framework - Advanced Monitoring Demo")
+    print("🚀 Imitator Framework - Advanced Monitoring Demo")
     print("=" * 60)
     
     # Run performance tests

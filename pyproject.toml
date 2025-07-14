@@ -3,14 +3,14 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "logandlearn"
+name = "imitator"
 version = "0.1.0"
-description = "A lightweight Python framework for monitoring function I/O with automatic logging and type validation"
+description = "A lightweight Python framework for monitoring and imitating function behavior with automatic I/O tracking and pattern learning"
 authors = [
-    {name = "LogAndLearn Team", email = "contact@logandlearn.dev"}
+    {name = "Imitator Team", email = "contact@imitator.dev"}
 ]
 maintainers = [
-    {name = "LogAndLearn Team", email = "contact@logandlearn.dev"}
+    {name = "Imitator Team", email = "contact@imitator.dev"}
 ]
 license = {text = "MIT"}
 readme = "README.md"
@@ -34,14 +34,16 @@ classifiers = [
 ]
 keywords = [
     "monitoring",
-    "logging",
+    "imitation",
     "function",
+    "behavior",
     "io",
     "machine-learning",
     "debugging",
     "profiling",
     "type-validation",
-    "decorator"
+    "decorator",
+    "pattern-learning"
 ]
 dependencies = [
     "pydantic>=2.0.0"
@@ -63,17 +65,17 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/logandlearn"
-Documentation = "https://logandlearn.readthedocs.io"
-Repository = "https://github.com/yourusername/logandlearn"
-Issues = "https://github.com/yourusername/logandlearn/issues"
-Changelog = "https://github.com/yourusername/logandlearn/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/Imitator/Imitator"
+Documentation = "https://github.com/Imitator/Imitator#readme"
+Repository = "https://github.com/Imitator/Imitator"
+Issues = "https://github.com/Imitator/Imitator/issues"
+Changelog = "https://github.com/Imitator/Imitator/blob/main/CHANGELOG.md"
 
 [tool.setuptools]
-packages = ["logandlearn"]
+packages = ["imitator"]
 
 [tool.setuptools.package-data]
-logandlearn = ["py.typed"]
+imitator = ["py.typed"]
 
 [tool.black]
 line-length = 88
@@ -117,7 +119,7 @@ addopts = "-v --tb=short"
 asyncio_mode = "auto"
 
 [tool.coverage.run]
-source = ["logandlearn"]
+source = ["imitator"]
 omit = ["*/tests/*", "*/test_*.py"]
 
 [tool.coverage.report]

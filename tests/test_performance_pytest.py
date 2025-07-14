@@ -10,9 +10,9 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Any
 import random
 import statistics
-from logandlearn.monitor import get_monitor
+from imitator.monitor import get_monitor
 
-from logandlearn import monitor_function, LocalStorage
+from imitator import monitor_function, LocalStorage
 from tests.conftest import wait_for_logs, temp_storage
 
 class TestPerformanceOverhead:

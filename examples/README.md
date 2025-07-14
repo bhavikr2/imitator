@@ -1,6 +1,6 @@
-# LogAndLearn Examples
+# Imitator Examples
 
-This directory contains comprehensive examples demonstrating the LogAndLearn framework's capabilities in various real-world scenarios.
+This directory contains comprehensive examples demonstrating the Imitator framework's capabilities in various real-world scenarios.
 
 ## 📁 Available Examples
 
@@ -48,9 +48,9 @@ This directory contains comprehensive examples demonstrating the LogAndLearn fra
 
 ## 🚀 Quick Start
 
-1. **Install LogAndLearn**:
+1. **Install Imitator**:
    ```bash
-   pip install logandlearn
+   pip install imitator
    ```
 
 2. **Run Basic Example**:
@@ -117,7 +117,7 @@ Each example will:
 
 ### Storage Configuration
 ```python
-from logandlearn import LocalStorage, monitor_function
+from imitator import LocalStorage, monitor_function
 
 # Custom storage location and format
 custom_storage = LocalStorage(log_dir="my_logs", format="json")
@@ -129,7 +129,7 @@ def my_function(x):
 
 ### Sampling and Rate Limiting
 ```python
-from logandlearn import FunctionMonitor
+from imitator import FunctionMonitor
 
 # Monitor with sampling and rate limiting
 monitor = FunctionMonitor(
@@ -165,8 +165,8 @@ The framework is designed for minimal overhead:
 
 1. **Import Errors**:
    ```bash
-   # Make sure LogAndLearn is installed
-   pip install logandlearn
+   # Make sure Imitator is installed
+   pip install imitator
    ```
 
 2. **Permission Errors**:
@@ -229,5 +229,5 @@ Found an issue or want to add a new example?
 ## 📖 Further Reading
 
 - Main Documentation: See the project README.md
-- API Reference: Check the docstrings in the logandlearn package
+- API Reference: Check the docstrings in the imitator package
 - Type Hints: All examples include comprehensive type annotations 

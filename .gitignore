@@ -189,7 +189,7 @@ cursor_chats
 marimo/_static/
 marimo/_lsp/
 __marimo__/
-# LogAndLearn specific
+# Imitator specific
 logs/
 *_logs/
 *.log

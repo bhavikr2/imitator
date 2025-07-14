@@ -1,5 +1,5 @@
 """
-Pytest-based test runner for LogAndLearn framework
+Pytest-based test runner for Imitator framework
 """
 
 import pytest
@@ -10,7 +10,7 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from logandlearn import LocalStorage
+from imitator import LocalStorage
 
 
 def run_all_tests():
@@ -30,7 +30,7 @@ def run_all_tests():
         "tests/",              # Test directory
     ]
     
-    print("🚀 Running LogAndLearn Framework Test Suite with pytest")
+    print("🚀 Running Imitator Framework Test Suite with pytest")
     print("=" * 60)
     
     # Run pytest

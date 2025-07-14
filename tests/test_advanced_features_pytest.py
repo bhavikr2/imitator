@@ -9,7 +9,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Any
 from tests.conftest import wait_for_logs
-from logandlearn import monitor_function, LocalStorage
+from imitator import monitor_function, LocalStorage
 
 
 class TestThreadSafety:
