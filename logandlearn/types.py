@@ -43,6 +43,7 @@ class IORecord(BaseModel):
     output: Any
     timestamp: datetime = Field(default_factory=datetime.now)
     execution_time_ms: Optional[float] = None
+    input_modifications: Optional[Dict[str, Dict[str, Any]]] = None  # Track in-place modifications
     
     class Config:
         arbitrary_types_allowed = True

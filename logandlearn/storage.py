@@ -39,6 +39,8 @@ class LocalStorage:
             # Append to JSONL file
             with open(log_file, "a", encoding="utf-8") as f:
                 f.write(function_call.model_dump_json() + "\n")
+                f.flush()  # Ensure data is written to OS buffer
+                os.fsync(f.fileno())  # Force OS to write to disk
         else:
             # Read existing JSON array, append, and write back
             calls = []
@@ -53,6 +55,8 @@ class LocalStorage:
             
             with open(log_file, "w", encoding="utf-8") as f:
                 json.dump(calls, f, indent=2, default=str)
+                f.flush()  # Ensure data is written to OS buffer
+                os.fsync(f.fileno())  # Force OS to write to disk
     
     def load_calls(self, function_name: str, date: Optional[str] = None) -> List[FunctionCall]:
         """
