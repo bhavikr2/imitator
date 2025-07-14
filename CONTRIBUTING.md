@@ -152,10 +152,6 @@ This example demonstrates [detailed description of what it shows].
 import sys
 import os
 from typing import List, Dict
-
-# Add the parent directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from imitator import monitor_function
 
 # Your example code here...
@@ -244,7 +240,7 @@ if __name__ == "__main__":
 
 - **GitHub Issues**: For bugs and feature requests
 - **GitHub Discussions**: For questions and general discussion
-- **Email**: contact@imitator.dev for direct contact
+- **Email**: imitatorpy@gmail.com for direct contact
 
 ## 🏆 Recognition
 
