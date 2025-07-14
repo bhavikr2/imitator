@@ -7,7 +7,7 @@ We welcome contributions to Imitator! This document outlines the process for con
 1. **Fork the repository** on GitHub
 2. **Clone your fork** locally:
    ```bash
-   git clone https://github.com/Imitator/Imitator.git
+   git clone https://github.com/bhavikr2/imitator.git
    cd imitator
    ```
 3. **Set up development environment**:
@@ -240,7 +240,7 @@ if __name__ == "__main__":
 
 - **GitHub Issues**: For bugs and feature requests
 - **GitHub Discussions**: For questions and general discussion
-- **Email**: imitatorpy@gmail.com for direct contact
+- **Email**: bhavikrathod6@gmail.com for direct contact
 
 ## 🏆 Recognition
 
