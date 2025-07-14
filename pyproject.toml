@@ -65,11 +65,11 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Imitator/Imitator"
-Documentation = "https://github.com/Imitator/Imitator#readme"
-Repository = "https://github.com/Imitator/Imitator"
-Issues = "https://github.com/Imitator/Imitator/issues"
-Changelog = "https://github.com/Imitator/Imitator/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/bhavikr2/imitator.git"
+Documentation = "https://github.com/bhavikr2/imitator.git#readme"
+Repository = "https://github.com/bhavikr2/imitator.git"
+Issues = "https://github.com/bhavikr2/imitator.git/issues"
+Changelog = "https://github.com/bhavikr2/imitator/blob/c4a45cfdaebccbd888ab12bdd2a7d3bced9ba61e/CHANGELOG.md"
 
 [tool.setuptools]
 packages = ["imitator"]
