@@ -1,5 +1,5 @@
 """
-Toy example demonstrating the LogAndLearn framework
+Toy example demonstrating the Imitator framework
 """
 
 import sys
@@ -7,10 +7,10 @@ import os
 import time
 from typing import List, Dict, Tuple
 
-# Add the parent directory to the path so we can import logandlearn
+# Add the parent directory to the path so we can import imitator
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from logandlearn import monitor_function, LocalStorage
+from imitator import monitor_function, LocalStorage
 
 
 # Example 1: Simple mathematical function
@@ -56,7 +56,7 @@ def analyze_text(text: str) -> Tuple[int, int, List[str]]:
 
 def demonstrate_framework():
     """Demonstrate the framework with various function calls"""
-    print("🚀 LogAndLearn Framework Demo")
+    print("🚀 Imitator Framework Demo")
     print("=" * 40)
     
     # Example 1: Simple function calls

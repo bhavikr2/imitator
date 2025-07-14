@@ -1,0 +1,16 @@
+include README.md
+include LICENSE
+include CHANGELOG.md
+include pyproject.toml
+include pytest.ini
+recursive-include imitator *.py
+recursive-include imitator *.typed
+recursive-include examples *.py
+recursive-include tests *.py
+exclude .gitignore
+exclude .pre-commit-config.yaml
+global-exclude *.pyc
+global-exclude __pycache__
+global-exclude .DS_Store
+global-exclude .git*
+global-exclude *.egg-info 

@@ -1,5 +1,5 @@
 """
-Pytest configuration and fixtures for LogAndLearn tests
+Pytest configuration and fixtures for Imitator tests
 """
 
 import pytest
@@ -8,8 +8,8 @@ import tempfile
 import glob
 import time
 import asyncio
-from logandlearn.monitor import FunctionMonitor
-from logandlearn import LocalStorage
+from imitator.monitor import FunctionMonitor
+from imitator import LocalStorage
 
 def clean_test_logs():
     """Helper function to clean up test log files."""

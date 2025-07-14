@@ -6,7 +6,7 @@ import pytest
 import asyncio
 from typing import List, Dict, Any
 from conftest import wait_for_logs
-from logandlearn import monitor_function, LocalStorage
+from imitator import monitor_function, LocalStorage
 
 
 class DataProcessor:
