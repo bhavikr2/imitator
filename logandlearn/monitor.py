@@ -4,6 +4,7 @@ Function monitoring decorator and utilities
 
 import time
 import asyncio
+import logging
 from functools import wraps
 from typing import Callable, Optional, Any
 import threading
@@ -300,14 +301,19 @@ class FunctionMonitor:
     
     def _save_async(self, function_call: FunctionCall):
         """Save function call asynchronously in a thread"""
-        def  save_in_thread():
+        def save_in_thread():
             try:
                 self.storage.save_call(function_call)
+                logging.debug(f"Successfully saved call for {function_call.function_signature.name}")
             except Exception as e:
+                # Log the error but don't crash the application
+                logging.error(f"Failed to save call for {function_call.function_signature.name}: {e}")
+                # Optionally, you could implement retry logic here
+                # For now, we'll just log and continue
             finally:
                 # Remove thread from active set when done
                 with self._lock:
-                    self._active_threads.discard(thread)
+                    self._active_threads.discard(threading.current_thread())
         
         thread = threading.Thread(target=save_in_thread)
         thread.daemon = False  # Non-daemon so threads complete before exit
