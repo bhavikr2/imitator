@@ -5,7 +5,7 @@ A powerful yet simple framework for monitoring function I/O, tracking performanc
 and collecting data for machine learning, debugging, and analysis.
 """
 
-from .monitor import monitor_function, FunctionMonitor
+from .monitor import monitor_function, FunctionMonitor, get_monitor
 from .types import FunctionCall, IORecord, FunctionSignature
 from .storage import LocalStorage
 
@@ -18,6 +18,7 @@ __description__ = "A lightweight Python framework for monitoring function I/O wi
 __all__ = [
     "monitor_function",
     "FunctionMonitor", 
+    "get_monitor",
     "FunctionCall",
     "IORecord",
     "FunctionSignature",

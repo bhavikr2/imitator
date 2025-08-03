@@ -237,6 +237,65 @@ The framework uses Pydantic for:
 - **Type-safe data structures** with validation
 - **JSON serialization** with complex type support
 
+## 🔄 Log Rotation
+
+The framework includes intelligent log rotation to manage disk space automatically:
+
+### Automatic Rotation
+
+```python
+from imitator import LocalStorage, monitor_function
+
+# Configure log rotation settings
+storage = LocalStorage(
+    log_dir="logs",
+    max_file_size_mb=50.0,      # Rotate when file exceeds 50MB
+    rotation_batch_size=50       # Remove 50 oldest entries when rotating
+)
+
+@monitor_function(storage=storage)
+def my_function(data: str) -> str:
+    return f"Processed: {data}"
+```
+
+### How It Works
+
+- **Size Monitoring**: Automatically checks file size before writing new entries
+- **Batch Rotation**: When size limit is exceeded, removes oldest entries in configurable batches
+- **Atomic Operations**: Uses temporary files to ensure data integrity during rotation
+- **Counter Tracking**: Tracks new entries since last rotation to trigger batch removal
+
+### Manual Management
+
+```python
+# Get file information
+info = storage.get_log_file_info("my_function")
+print(f"File size: {info['size_mb']:.2f} MB")
+print(f"Entry count: {info['entry_count']}")
+print(f"Rotation needed: {info['rotation_needed']}")
+
+# Force manual rotation
+success = storage.force_rotate_log("my_function", entries_to_remove=100)
+
+# Update rotation settings
+storage.set_rotation_settings(
+    max_file_size_mb=100.0,
+    rotation_batch_size=25
+)
+
+# Monitor all functions
+all_info = storage.get_all_log_files_info()
+for func_name, func_info in all_info.items():
+    print(f"{func_name}: {func_info['size_mb']:.2f} MB, {func_info['entry_count']} entries")
+```
+
+### Configuration Options
+
+- **`max_file_size_mb`**: Maximum file size before rotation (default: 50MB)
+- **`rotation_batch_size`**: Number of oldest entries to remove (default: 50)
+- **Atomic writes**: Ensures data consistency during rotation
+- **Per-function tracking**: Independent rotation for each monitored function
+
 ## 📋 Example Output
 
 Running monitored functions generates structured logs like:
@@ -299,6 +358,7 @@ The package includes comprehensive examples demonstrating various use cases:
 - **`basic_usage.py`**: Getting started with core features
 - **`advanced_monitoring.py`**: Advanced configuration and async support
 - **`real_world_simulation.py`**: Practical applications and systems
+- **`log_rotation_example.py`**: Log rotation and file management features
 
 ### Run Examples
 ```bash
@@ -313,6 +373,7 @@ cd imitator/examples
 python basic_usage.py
 python advanced_monitoring.py
 python real_world_simulation.py
+python log_rotation_example.py
 ```
 
 Each example demonstrates:

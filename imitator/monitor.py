@@ -20,7 +20,9 @@ class FunctionMonitor:
     
     def __init__(self, storage: Optional[LocalStorage] = None, 
                  sampling_rate: float = 1.0, 
-                 max_calls_per_minute: Optional[int] = None):
+                 max_calls_per_minute: Optional[int] = None,
+                 max_file_size_mb: float = 50.0,
+                 rotation_batch_size: int = 50):
         """
         Initialize function monitor
         
@@ -28,8 +30,15 @@ class FunctionMonitor:
             storage: Storage backend, defaults to LocalStorage
             sampling_rate: Fraction of calls to log (0.0 to 1.0)
             max_calls_per_minute: Maximum calls to log per minute per function
+            max_file_size_mb: Maximum log file size in MB before rotation
+            rotation_batch_size: Number of entries to remove when rotating
         """
-        self.storage = storage or LocalStorage()
+        if storage is None:
+            storage = LocalStorage(
+                max_file_size_mb=max_file_size_mb,
+                rotation_batch_size=rotation_batch_size
+            )
+        self.storage = storage
         self.sampling_rate = sampling_rate
         self.max_calls_per_minute = max_calls_per_minute
         self._call_counts = defaultdict(list)  # Track calls per function
@@ -359,7 +368,9 @@ def monitor_function(func: Optional[Callable] = None, *,
                     monitor: Optional['FunctionMonitor'] = None,
                     storage: Optional[LocalStorage] = None,
                     sampling_rate: float = 1.0,
-                    max_calls_per_minute: Optional[int] = None) -> Callable:
+                    max_calls_per_minute: Optional[int] = None,
+                    max_file_size_mb: float = 50.0,
+                    rotation_batch_size: int = 50) -> Callable:
     """
     Decorator to monitor function I/O
     
@@ -369,7 +380,7 @@ def monitor_function(func: Optional[Callable] = None, *,
         pass
     
     Or with arguments:
-    @monitor_function(sampling_rate=0.1)
+    @monitor_function(sampling_rate=0.1, max_file_size_mb=100)
     def my_func():
         pass
 
@@ -384,13 +395,24 @@ def monitor_function(func: Optional[Callable] = None, *,
         storage: Custom storage backend (if no monitor is provided)
         sampling_rate: Fraction of calls to log (0.0 to 1.0) (if no monitor is provided)
         max_calls_per_minute: Maximum calls to log per minute (if no monitor is provided)
+        max_file_size_mb: Maximum log file size in MB before rotation (if no monitor is provided)
+        rotation_batch_size: Number of entries to remove when rotating (if no monitor is provided)
     
     Returns:
         Decorated function or decorator
     """
     def decorator(f: Callable) -> Callable:
         # Use provided monitor instance if available, otherwise create a new one
-        effective_monitor = monitor if monitor is not None else FunctionMonitor(storage, sampling_rate, max_calls_per_minute)
+        if monitor is not None:
+            effective_monitor = monitor
+        else:
+            effective_monitor = FunctionMonitor(
+                storage=storage,
+                sampling_rate=sampling_rate,
+                max_calls_per_minute=max_calls_per_minute,
+                max_file_size_mb=max_file_size_mb,
+                rotation_batch_size=rotation_batch_size
+            )
         return effective_monitor.monitor(f)
     
     if func is None:
@@ -403,6 +425,14 @@ def monitor_function(func: Optional[Callable] = None, *,
 
 def get_monitor(storage: Optional[LocalStorage] = None, 
                 sampling_rate: float = 1.0,
-                max_calls_per_minute: Optional[int] = None) -> FunctionMonitor:
+                max_calls_per_minute: Optional[int] = None,
+                max_file_size_mb: float = 50.0,
+                rotation_batch_size: int = 50) -> FunctionMonitor:
     """Get a function monitor instance"""
-    return FunctionMonitor(storage, sampling_rate, max_calls_per_minute) 
+    return FunctionMonitor(
+        storage=storage,
+        sampling_rate=sampling_rate,
+        max_calls_per_minute=max_calls_per_minute,
+        max_file_size_mb=max_file_size_mb,
+        rotation_batch_size=rotation_batch_size
+    ) 
