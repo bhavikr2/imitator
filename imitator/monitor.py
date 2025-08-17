@@ -47,7 +47,7 @@ class FunctionMonitor:
         if self.sampling_rate < 1.0 and self._random.random() > self.sampling_rate:
             return False
         
-        # Check rate limiting
+        # Then, check rate limiting (only if sampling allowed or sampling_rate is 1.0)
         if self.max_calls_per_minute is not None:
             with self._lock:
                 now = datetime.now()
@@ -358,7 +358,7 @@ class FunctionMonitor:
 def monitor_function(func: Optional[Callable] = None, *,
                     monitor: Optional['FunctionMonitor'] = None,
                     storage: Optional[LocalStorage] = None,
-                    sampling_rate: float = 1.0,
+                    sampling_rate: Optional[float] = None,
                     max_calls_per_minute: Optional[int] = None) -> Callable:
     """
     Decorator to monitor function I/O
@@ -380,17 +380,34 @@ def monitor_function(func: Optional[Callable] = None, *,
     
     Args:
         func: Function to monitor (for direct decoration)
-        monitor: An existing FunctionMonitor instance to use. If provided, other args are ignored.
+        monitor: An existing FunctionMonitor instance to use. Other args will override its settings if provided.
         storage: Custom storage backend (if no monitor is provided)
-        sampling_rate: Fraction of calls to log (0.0 to 1.0) (if no monitor is provided)
+        sampling_rate: Fraction of calls to log (0.0 to 1.0), defaults to 1.0 (if no monitor is provided)
         max_calls_per_minute: Maximum calls to log per minute (if no monitor is provided)
     
     Returns:
         Decorated function or decorator
     """
     def decorator(f: Callable) -> Callable:
-        # Use provided monitor instance if available, otherwise create a new one
-        effective_monitor = monitor if monitor is not None else FunctionMonitor(storage, sampling_rate, max_calls_per_minute)
+        if monitor is not None:
+            # Use provided monitor and override any explicitly provided parameters
+            effective_monitor = monitor
+            # Update attributes directly using a more concise approach
+            for param_name, param_value in [
+                ('storage', storage),
+                ('sampling_rate', sampling_rate), 
+                ('max_calls_per_minute', max_calls_per_minute)
+            ]:
+                if param_value is not None:
+                    setattr(effective_monitor, param_name, param_value)
+        else:
+            # Create new monitor with provided parameters (use default sampling_rate if None)
+            effective_monitor = FunctionMonitor(
+                storage, 
+                sampling_rate if sampling_rate is not None else 1.0, 
+                max_calls_per_minute
+            )
+        
         return effective_monitor.monitor(f)
     
     if func is None:
