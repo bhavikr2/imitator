@@ -18,7 +18,8 @@ from tests.conftest import wait_for_logs, temp_storage
 class TestPerformanceOverhead:
     """Test performance overhead of monitoring"""
     
-    def test_monitoring_overhead(self, clean_logs):
+    @pytest.mark.asyncio
+    async def test_monitoring_overhead(self, clean_logs, function_monitor):
         """Test that monitoring overhead is reasonable with a realistic simulation."""
 
         def simulate_coffee_shop_queue(num_customers, num_baristas, mean_arrival_interval, mean_service_time):
@@ -56,7 +57,7 @@ class TestPerformanceOverhead:
             return avg_wait_time / 60  # Convert seconds to minutes for readability
 
         # Monitored function
-        @monitor_function
+        @monitor_function(monitor=function_monitor)
         def monitored_simulate_coffee_shop_queue(num_customers, num_baristas, mean_arrival_interval, mean_service_time):
             """Simulate a coffee shop queue with monitoring."""
             # Initialize variables
@@ -118,20 +119,29 @@ class TestPerformanceOverhead:
         assert overhead_percentage < 200, f"Overhead {overhead_percentage:.1f}% should be less than 200%"
         
         # Verify logging worked
-        storage = LocalStorage()
+        await wait_for_logs(function_monitor) # Ensure logs are flushed
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("monitored_simulate_coffee_shop_queue")
         assert len(calls) == iterations, f"Should have {iterations} calls logged"
     
-    def test_sampling_reduces_overhead(self, clean_logs):
+    @pytest.mark.asyncio
+    async def test_sampling_reduces_overhead(self, clean_logs, function_monitor):
         """Test that sampling significantly reduces overhead"""
         
         # Function with full monitoring
-        @monitor_function
+        # Create a specific monitor for full logging
+        full_monitor = get_monitor(storage=function_monitor.storage, sampling_rate=1.0)
+
+        @monitor_function(monitor=full_monitor)
         def full_monitoring(x: int) -> int:
             return x * 2 + 1
         
         # Function with 1% sampling
-        @monitor_function(sampling_rate=0.01)
+        # Create a specific monitor for sampled logging
+        sampled_monitor = get_monitor(storage=function_monitor.storage, sampling_rate=0.01)
+
+        @monitor_function(monitor=sampled_monitor)
         def sampled_function(x: int) -> int:
             return x * 2 + 1
         
@@ -152,19 +162,29 @@ class TestPerformanceOverhead:
         # Sampled should be faster than full monitoring
         assert sampled_time < full_time, "Sampled monitoring should be faster than full monitoring"
         
+        # Wait for all logs to be saved
+        await wait_for_logs(full_monitor)
+        await wait_for_logs(sampled_monitor)
+
         # Verify sampling worked
-        storage = LocalStorage()
+        # Note: Both monitors share the same storage (function_monitor.storage)
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         
         full_calls = storage.load_calls("full_monitoring")
         sampled_calls = storage.load_calls("sampled_function")
         
         assert len(full_calls) == iterations, "Full monitoring should log all calls"
         assert len(sampled_calls) < iterations * 0.05, "Sampling should log much fewer calls"
-    
-    def test_rate_limiting_prevents_performance_degradation(self, clean_logs):
+        assert len(sampled_calls) > 0, "Sampling should still log some calls"
+
+    @pytest.mark.asyncio
+    async def test_rate_limiting_prevents_performance_degradation(self, clean_logs, function_monitor):
         """Test that rate limiting prevents performance degradation"""
         
-        @monitor_function(max_calls_per_minute=10)
+        rate_limited_monitor = get_monitor(storage=function_monitor.storage, max_calls_per_minute=10)
+
+        @monitor_function(monitor=rate_limited_monitor)
         def rate_limited_function(x: int) -> int:
             return x * 2 + 1
         
@@ -179,8 +199,12 @@ class TestPerformanceOverhead:
         # Should complete in reasonable time
         assert total_time < 2.0, f"Should complete in under 2 seconds, took {total_time:.2f}s"
         
+        # Wait for all logs to be saved
+        await wait_for_logs(rate_limited_monitor)
+
         # Verify rate limiting worked
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("rate_limited_function")
         assert len(calls) <= 10, f"Should have at most 10 calls logged, got {len(calls)}"
 
@@ -233,7 +257,8 @@ class TestConcurrentPerformance:
         # Verify all calls were logged
         logs_completed = await wait_for_logs(function_monitor)  # Wait for all log writes to complete
         assert logs_completed, "All log saves should complete successfully"
-        storage = LocalStorage()
+        storage = function_monitor.storage # Use the fixture's storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("concurrent_function")
         assert len(calls) == total_calls, f"Should have {total_calls} calls logged"
         
@@ -241,10 +266,11 @@ class TestConcurrentPerformance:
         thread_ids = [call.io_record.inputs["thread_id"] for call in calls]
         assert set(thread_ids) == set(range(num_threads)), "All threads should be represented"
     
-    def test_no_deadlocks_under_load(self, clean_logs):
+    @pytest.mark.asyncio
+    async def test_no_deadlocks_under_load(self, clean_logs, function_monitor):
         """Test that no deadlocks occur under heavy concurrent load"""
         
-        @monitor_function
+        @monitor_function(monitor=function_monitor)
         def heavy_concurrent_function(worker_id: int) -> str:
             # Simulate some work
             time.sleep(0.001)  # 1ms
@@ -282,7 +308,9 @@ class TestConcurrentPerformance:
         assert len(all_results) == num_workers * calls_per_worker, "All workers should complete"
         
         # Verify logging
-        storage = LocalStorage()
+        await wait_for_logs(function_monitor)
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("heavy_concurrent_function")
         assert len(calls) == num_workers * calls_per_worker, "All calls should be logged"
 
@@ -337,14 +365,19 @@ class TestAsyncPerformance:
         # Verify logging worked
         logs_completed = await wait_for_logs(function_monitor)
         assert logs_completed, "All log saves should complete successfully"
+        function_monitor.storage.close() # Flush buffer (main monitor's storage)
+        # The temp_storage fixture implicitly closes its storage when the test ends.
+        # No need to explicitly close temp_storage here.
         calls = temp_storage.load_calls("async_monitored")
         assert len(calls) == num_calls_to_benchmark, f"Should have {num_calls_to_benchmark} calls logged"
     
     @pytest.mark.asyncio
-    async def test_async_concurrent_performance(self, clean_logs):
+    async def test_async_concurrent_performance(self, clean_logs, function_monitor):
         """Test async performance under concurrent load"""
         
-        @monitor_function
+        async_monitor = get_monitor(storage=function_monitor.storage) # Use main fixture's storage
+
+        @monitor_function(monitor=async_monitor)
         async def async_worker(worker_id: int, delay: float) -> Dict[str, Any]:
             """Async worker with variable delay"""
             start_time = time.time()
@@ -381,8 +414,12 @@ class TestAsyncPerformance:
             assert result["delay"] == delays[i]
             assert result["actual_time"] >= delays[i]
         
+        # Wait for all logs to be saved
+        await wait_for_logs(async_monitor)
+
         # Verify logging
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("async_worker")
         assert len(calls) == num_workers, f"Should have {num_workers} calls logged"
 
@@ -390,10 +427,17 @@ class TestAsyncPerformance:
 class TestMemoryEfficiency:
     """Test memory efficiency of the monitoring system"""
     
-    def test_memory_usage_with_large_data(self, clean_logs):
+    @pytest.mark.asyncio
+    async def test_memory_usage_with_large_data(self, clean_logs, function_monitor):
         """Test memory efficiency with large data structures"""
         
-        @monitor_function(sampling_rate=0.1)  # Sample to control memory usage
+        # Test with increasingly large datasets
+        sizes = [1000, 10000, 100000]
+        
+        # Create a specific monitor for this test
+        memory_monitor = get_monitor(sampling_rate=0.1, storage=function_monitor.storage)
+
+        @monitor_function(monitor=memory_monitor)  # Sample to control memory usage
         def process_large_data(data: List[int]) -> Dict[str, int]:
             """Process large data efficiently"""
             return {
@@ -401,9 +445,6 @@ class TestMemoryEfficiency:
                 "sum": sum(data),
                 "memory_efficient": 1
             }
-        
-        # Test with increasingly large datasets
-        sizes = [1000, 10000, 100000]
         
         for size in sizes:
             large_data = list(range(size))
@@ -422,17 +463,26 @@ class TestMemoryEfficiency:
             assert result["count"] == size
             assert result["sum"] == expected_sum
         
+        # Wait for logs to be saved
+        await wait_for_logs(memory_monitor)
+
         # Verify sampling worked to control memory
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("process_large_data")
         
         # Should have logged some calls but not all (due to sampling)
         assert len(calls) <= len(sizes), f"Should have sampled calls, got {len(calls)}"
-    
-    def test_log_rotation_efficiency(self, clean_logs):
+        assert len(calls) > 0, "Should have logged some calls"
+
+    @pytest.mark.asyncio
+    async def test_log_rotation_efficiency(self, clean_logs, function_monitor):
         """Test that log storage doesn't grow unbounded"""
         
-        @monitor_function
+        # Create a specific monitor for this test
+        rotation_monitor = get_monitor(storage=function_monitor.storage)
+
+        @monitor_function(monitor=rotation_monitor)
         def repeated_function(iteration: int) -> str:
             """Function called many times"""
             return f"iteration_{iteration}"
@@ -442,8 +492,12 @@ class TestMemoryEfficiency:
         for i in range(num_calls):
             repeated_function(i)
         
+        # Wait for logs to be saved
+        await wait_for_logs(rotation_monitor)
+
         # Verify all calls were logged
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("repeated_function")
         assert len(calls) == num_calls, f"Should have {num_calls} calls logged"
         
@@ -461,10 +515,13 @@ class TestMemoryEfficiency:
 class TestExtremeLoad:
     """Test system behavior under extreme load"""
     
-    def test_high_frequency_calls(self, clean_logs):
+    @pytest.mark.asyncio
+    async def test_high_frequency_calls(self, clean_logs, function_monitor):
         """Test system with very high frequency calls"""
         
-        @monitor_function(sampling_rate=0.001, max_calls_per_minute=5)
+        high_freq_monitor = get_monitor(sampling_rate=0.001, max_calls_per_minute=5, storage=function_monitor.storage)
+
+        @monitor_function(monitor=high_freq_monitor)
         def extreme_frequency_function(x: int) -> int:
             """Function designed for extreme frequency"""
             return x % 1000
@@ -480,15 +537,22 @@ class TestExtremeLoad:
         throughput = iterations / total_time
         assert throughput > 10000, f"Throughput {throughput:.0f} calls/sec should be > 10,000 calls/sec"
         
+        # Wait for logs to be saved
+        await wait_for_logs(high_freq_monitor)
+
         # Verify rate limiting worked
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("extreme_frequency_function")
         assert len(calls) <= 5, f"Should have at most 5 calls logged due to rate limiting, got {len(calls)}"
     
-    def test_system_stability_under_load(self, clean_logs):
+    @pytest.mark.asyncio
+    async def test_system_stability_under_load(self, clean_logs, function_monitor):
         """Test that system remains stable under sustained load"""
         
-        @monitor_function(sampling_rate=0.01)
+        stability_monitor = get_monitor(sampling_rate=0.01, storage=function_monitor.storage)
+
+        @monitor_function(monitor=stability_monitor)
         def stability_test_function(batch_id: int, item_id: int) -> str:
             """Function for stability testing"""
             # Some computation to make it realistic
@@ -519,11 +583,17 @@ class TestExtremeLoad:
         total_items = num_batches * items_per_batch
         assert len(all_results) == total_items, f"Should have {total_items} results"
         
+        # Wait for logs to be saved
+        await wait_for_logs(stability_monitor)
+
         # Verify logging worked (with sampling)
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("stability_test_function")
         
         # Should have some calls logged (approximately 1% due to sampling)
         expected_logged = total_items * 0.01
         assert len(calls) > 0, "Should have some calls logged"
-        assert len(calls) < total_items * 0.05, "Should not log too many calls due to sampling" 
+        assert len(calls) < total_items * 0.05, "Should not log too many calls due to sampling"
+        assert abs(len(calls) - expected_logged) / expected_logged * 100 <= 50, \
+            f"Expected ~{expected_logged} calls, got {len(calls)}" 

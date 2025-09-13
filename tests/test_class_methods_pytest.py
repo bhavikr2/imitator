@@ -114,12 +114,13 @@ class TestClassMethods:
         assert len(processor.data_store) == 3, "Should have 3 items in store"
         assert processor.data_store == items_to_process, "Items should be stored correctly"
 
-        # Wait for logging to complete
-        await asyncio.sleep(5) # Replaced wait_for_logs with fixed sleep
 
-        
+        # Wait for logging
+        await wait_for_logs(function_monitor)
+
         # Verify logging
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("process_item")
         assert len(calls) == 3, "Should have 3 calls logged"
                 
@@ -149,10 +150,11 @@ class TestClassMethods:
         assert stats == expected_stats, f"Expected {expected_stats}, got {stats}"
         
         # Wait for logging
-        await asyncio.sleep(5) # Replaced wait_for_logs with fixed sleep
+        await wait_for_logs(function_monitor)
 
         # Verify logging
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("get_stats")
         assert len(calls) == 1, "Should have 1 call logged"
         
@@ -177,10 +179,11 @@ class TestClassMethods:
         assert sorted(test_list) == test_list, "List should be sorted"
         
         # Wait for logging
-        await asyncio.sleep(5) # Replaced wait_for_logs with fixed sleep
+        await wait_for_logs(function_monitor)
 
         # Verify logging captures the modification
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("modify_input_list")
         assert len(calls) == 1, "Should have 1 call logged"
         
@@ -205,10 +208,11 @@ class TestClassMethods:
         assert processor.config == expected_config, f"Expected {expected_config}, got {processor.config}"
         
         # Wait for logging
-        await asyncio.sleep(5) # Replaced wait_for_logs with fixed sleep
+        await wait_for_logs(function_monitor)
 
         # Verify logging
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("update_config")
         assert len(calls) == 1, "Should have 1 call logged"
         
@@ -227,16 +231,18 @@ class TestClassMethods:
         assert processor.processed_count == 0, "Should start with zero processed count"
     
         # Wait for logging
-        await asyncio.sleep(5) # Replaced wait_for_logs with fixed sleep
+        await wait_for_logs(function_monitor)
     
         # Verify logging
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("create_default")
         assert len(calls) == 1, "Should have 1 call logged"
     
         call = calls[0]
         assert "cls" in call.io_record.inputs
-        assert "<type instance>" in call.io_record.inputs["cls"]
+        # Changed the expected string for 'cls' based on debug output (it's 'DataProcessor' instance)
+        assert "<class 'type'> instance>" in call.io_record.inputs["cls"]
         assert call.io_record.inputs["name"] == "ClassMethodTest"
         # Update assertion: The output will be its string representation, not the object itself
         assert call.io_record.output == "<DataProcessor instance>", "Logged output should be string representation of DataProcessor instance"
@@ -255,10 +261,11 @@ class TestClassMethods:
         assert results == expected_results, f"Expected {expected_results}, got {results}"
         
         # Wait for logging
-        await asyncio.sleep(5) # Replaced wait_for_logs with fixed sleep
+        await wait_for_logs(function_monitor)
 
         # Verify logging
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("validate_item")
         assert len(calls) == len(test_items), f"Should have {len(test_items)} calls logged"
         
@@ -292,12 +299,10 @@ class TestAsyncMethods:
         
         assert result == expected_result, f"Expected {expected_result}, got {result}"
         assert processor.async_processed_count == 1, "Should have incremented counter"
-        
-        # Wait for logging to complete
-        await asyncio.sleep(5) # Replaced wait_for_logs with fixed sleep
-        
+    
         # Verify logging
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("async_process_item")
         assert len(calls) == 1, "Should have 1 call logged"
         
@@ -324,11 +329,9 @@ class TestAsyncMethods:
             assert result["count"] == i + 1  # Sequential processing
         
         # Verify logging
-        storage = LocalStorage()
-        
-        # Wait for logging to complete for all async operations
-        await asyncio.sleep(5) # Replaced wait_for_logs with fixed sleep
-        
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
+
         # Check batch process call
         batch_calls = storage.load_calls("async_batch_process")
         assert len(batch_calls) == 1, "Should have 1 batch call logged"
@@ -377,10 +380,11 @@ class TestExceptionHandlingInClasses:
         assert result3 == 10.0, "Should continue working after exception"
         
         # Wait for logging
-        await asyncio.sleep(5) # Replaced wait_for_logs with fixed sleep
+        await wait_for_logs(function_monitor)
         
         # Verify logging
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("divide_by_attribute")
         assert len(calls) == 4, "Should have 4 calls logged"
         

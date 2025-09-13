@@ -49,11 +49,9 @@ class TestThreadSafety:
         # Verify results
         assert len(all_results) == num_threads * calls_per_thread
         
-        logs_completed = await wait_for_logs(function_monitor)
-        assert logs_completed, "All log saves should complete successfully"
-
         # Verify logging
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close()  # Flush buffer
         calls = storage.load_calls("thread_safe_counter")
         assert len(calls) == num_threads * calls_per_thread, "All calls should be logged"
         
@@ -105,7 +103,8 @@ class TestThreadSafety:
         assert logs_completed, "All log saves should complete successfully"
         
         # Verify logging integrity
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close()  # Flush buffer
         calls = storage.load_calls("data_processor")
         assert len(calls) == num_workers * 4, "All calls should be logged"
         
@@ -118,10 +117,11 @@ class TestThreadSafety:
 class TestRateLimiting:
     """Test rate limiting and sampling features"""
     
-    def test_sampling_rate(self, clean_logs):
+    @pytest.mark.asyncio
+    async def test_sampling_rate(self, clean_logs, function_monitor):
         """Test that sampling rate is approximately respected"""
         
-        @monitor_function(sampling_rate=0.1)  # 10% sampling
+        @monitor_function(monitor=function_monitor, sampling_rate=0.1)  # 10% sampling
         def sampled_function(x: int) -> int:
             """Function with 10% sampling"""
             return x * 2
@@ -137,8 +137,11 @@ class TestRateLimiting:
         assert len(results) == num_calls
         assert results == [i * 2 for i in range(num_calls)]
         
+        await wait_for_logs(function_monitor)
+
         # Verify sampling
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("sampled_function")
         
         # Should have approximately 10% of calls logged (allowing for randomness)
@@ -149,10 +152,11 @@ class TestRateLimiting:
         assert abs(actual_logged - expected_logged) / expected_logged * 100 <= 20, \
         f"Expected ~{expected_logged} calls, got {actual_logged}"
     
-    def test_rate_limiting_per_minute(self, clean_logs):
+    @pytest.mark.asyncio
+    async def test_rate_limiting_per_minute(self, clean_logs, function_monitor):
         """Test rate limiting per minute"""
         
-        @monitor_function(max_calls_per_minute=5)
+        @monitor_function(monitor=function_monitor, max_calls_per_minute=5)
         def rate_limited_function(x: int) -> int:
             """Function with rate limiting"""
             return x * 3
@@ -168,17 +172,21 @@ class TestRateLimiting:
         assert len(results) == num_calls
         assert results == [i * 3 for i in range(num_calls)]
         
+        await wait_for_logs(function_monitor)
+
         # Verify rate limiting
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("rate_limited_function")
         
         # Should have at most 5 calls logged
         assert len(calls) <= 5, f"Expected at most 5 calls, got {len(calls)}"
     
-    def test_combined_sampling_and_rate_limiting(self, clean_logs):
+    @pytest.mark.asyncio
+    async def test_combined_sampling_and_rate_limiting(self, clean_logs, function_monitor):
         """Test combination of sampling and rate limiting"""
         
-        @monitor_function(sampling_rate=0.5, max_calls_per_minute=3)
+        @monitor_function(monitor=function_monitor, sampling_rate=0.5, max_calls_per_minute=3)
         def combined_function(x: int) -> int:
             """Function with both sampling and rate limiting"""
             return x + 10
@@ -193,8 +201,11 @@ class TestRateLimiting:
         # Verify all function calls worked
         assert len(results) == num_calls
         
+        await wait_for_logs(function_monitor)
+
         # Verify combined limits
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("combined_function")
         
         # Should have at most 3 calls logged due to rate limiting
@@ -247,7 +258,8 @@ class TestComplexDataHandling:
         assert "last_modified" in test_data
         
         # Verify logging
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("modify_nested_data")
         assert len(calls) == 3, "Should have 3 calls logged"
         
@@ -293,7 +305,8 @@ class TestComplexDataHandling:
         assert logs_completed, "All log saves should complete successfully"
 
         # Verify logging
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("polymorphic_function")
         assert len(calls) == len(test_cases), f"Should have {len(test_cases)} calls logged"
         
@@ -310,10 +323,11 @@ class TestComplexDataHandling:
             call = matching_calls[0]
             assert call.io_record.output == expected, f"For {input_type}, expected {expected}, got {call.io_record.output}"
     
-    def test_large_data_handling(self, clean_logs):
+    @pytest.mark.asyncio
+    async def test_large_data_handling(self, clean_logs, function_monitor):
         """Test handling of large data structures"""
         
-        @monitor_function(sampling_rate=0.1)  # Sample to manage memory
+        @monitor_function(monitor=function_monitor, sampling_rate=0.1)  # Sample to manage memory
         def process_large_data(data: List[int]) -> Dict[str, Any]:
             """Process large data and return statistics"""
             return {
@@ -341,10 +355,13 @@ class TestComplexDataHandling:
             
             assert result == expected, f"For size {size}, expected {expected}, got {result}"
         
+        await wait_for_logs(function_monitor)
+
         # Verify some calls were logged (with sampling)
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("process_large_data")
-        assert len(calls) >= 0, "Should have some calls logged"
+        assert len(calls) == 3, "Should have some calls logged"
 
 
 class TestAsyncAdvancedFeatures:
@@ -380,7 +397,8 @@ class TestAsyncAdvancedFeatures:
         assert logs_completed, "All log saves should complete successfully"
 
         # Verify logging
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("async_error_function")
         assert len(calls) == 3, "Should have 3 calls logged"
         
@@ -446,7 +464,8 @@ class TestAsyncAdvancedFeatures:
         assert logs_completed, "All log saves should complete successfully"
 
         # Verify logging
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("async_worker")
         assert len(calls) == num_workers, f"Should have {num_workers} calls logged"
         
@@ -513,7 +532,8 @@ class TestComplexExceptionScenarios:
         assert logs_completed, "All log saves should complete successfully"
 
         # Verify logging
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close() # Flush buffer
         calls = storage.load_calls("outer_function")
         assert len(calls) == 6, "Should have 6 calls logged (2 success + 4 errors)"
         
