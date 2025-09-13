@@ -222,10 +222,13 @@ class TestPerformanceCharacteristics:
     """Test performance-related features"""
     
     @pytest.mark.asyncio
-    async def test_sampling_functionality(self, clean_logs, function_monitor):
+    async def test_sampling_functionality(self, clean_logs):
         """Test that sampling works as expected"""
 
-        @monitor_function(sampling_rate=0.1)  # 10% sampling
+        # Create a monitor with sampling enabled
+        function_monitor = get_monitor(sampling_rate=0.1)
+
+        @monitor_function(monitor=function_monitor)
         def high_frequency_function(x: int) -> int:
             """Function called frequently with sampling"""
             return x * x
