@@ -435,7 +435,7 @@ class TestMemoryEfficiency:
         sizes = [1000, 10000, 100000]
         
         # Create a specific monitor for this test
-        memory_monitor = get_monitor(sampling_rate=0.1, storage=function_monitor.storage)
+        memory_monitor = get_monitor(storage=function_monitor.storage)
 
         @monitor_function(monitor=memory_monitor)  # Sample to control memory usage
         def process_large_data(data: List[int]) -> Dict[str, int]:

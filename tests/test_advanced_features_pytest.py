@@ -327,7 +327,7 @@ class TestComplexDataHandling:
     async def test_large_data_handling(self, clean_logs, function_monitor):
         """Test handling of large data structures"""
         
-        @monitor_function(monitor=function_monitor, sampling_rate=0.1)  # Sample to manage memory
+        @monitor_function(monitor=function_monitor)
         def process_large_data(data: List[int]) -> Dict[str, Any]:
             """Process large data and return statistics"""
             return {
