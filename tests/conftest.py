@@ -22,7 +22,8 @@ def clean_test_logs():
         project_root / "examples" / "logs",
         project_root / "test_logs",
         Path.cwd() / "logs",
-        Path.cwd() / "test_logs"
+        Path.cwd() / "test_logs",
+        project_root / "tests" / "logs"
     ]
     
     # Clean log files from all directories
@@ -63,8 +64,13 @@ def clean_logs():
 @pytest.fixture
 def function_monitor() -> FunctionMonitor:
     """Fixture to provide an isolated FunctionMonitor instance for a single test."""
-    return FunctionMonitor()
-
+    # Create a test-specific logs directory
+    test_logs_dir = Path(__file__).parent / "logs"
+    test_logs_dir.mkdir(exist_ok=True)
+    
+    # Create storage with test logs directory
+    storage = LocalStorage(log_dir=str(test_logs_dir))
+    return FunctionMonitor(storage)
 
 @pytest.fixture
 def temp_storage():
