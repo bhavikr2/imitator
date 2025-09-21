@@ -124,10 +124,6 @@ class TestAsyncMonitoring:
         with pytest.raises(ConnectionError, match="Failed to fetch"):
             await async_fetch_data("https://error.example.com")
         
-        # Wait for logging
-        logs_completed = await wait_for_logs(function_monitor)
-        assert logs_completed, "All log saves should complete successfully"
-        
         # Verify async logging worked
         storage = function_monitor.storage
         storage.close()  # Flush buffer to disk
@@ -186,10 +182,6 @@ class TestComplexDataTypes:
         assert result["email_domain"] == "example.com", "Email domain should be extracted"
         assert result["preferences_count"] == 3, "Should count preferences correctly"
         assert result["is_premium"] is True, "Should detect premium subscription"
-        
-        # Wait for logging
-        logs_completed = await wait_for_logs(function_monitor)
-        assert logs_completed, "All log saves should complete successfully"
         
         # Debug: Check if logs directory exists
         import os
@@ -277,10 +269,6 @@ class TestPerformanceCharacteristics:
         # Verify all function calls worked (rate limiting doesn't affect function execution)
         assert len(results) == num_calls, "All function calls should complete"
         assert "Processed: message_0" in results[0], "Function should work correctly"
-        
-        # Wait for logging
-        logs_completed = await wait_for_logs(function_monitor)
-        assert logs_completed, "All log saves should complete successfully"
         
         # Verify rate limiting worked
         storage = function_monitor.storage

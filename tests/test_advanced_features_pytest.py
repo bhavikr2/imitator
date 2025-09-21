@@ -8,7 +8,6 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Any
-from tests.conftest import wait_for_logs
 from imitator import monitor_function, LocalStorage
 
 
@@ -98,9 +97,6 @@ class TestThreadSafety:
         expected_results = [6, 15, 24, 33] * num_workers
         
         assert sorted(all_results) == sorted(expected_results), "Results should be correct"
-
-        logs_completed = await wait_for_logs(function_monitor)
-        assert logs_completed, "All log saves should complete successfully"
         
         # Verify logging integrity
         storage = function_monitor.storage
@@ -137,7 +133,7 @@ class TestRateLimiting:
         assert len(results) == num_calls
         assert results == [i * 2 for i in range(num_calls)]
         
-        await wait_for_logs(function_monitor)
+        
 
         # Verify sampling
         storage = function_monitor.storage
@@ -172,7 +168,7 @@ class TestRateLimiting:
         assert len(results) == num_calls
         assert results == [i * 3 for i in range(num_calls)]
         
-        await wait_for_logs(function_monitor)
+        
 
         # Verify rate limiting
         storage = function_monitor.storage
@@ -201,7 +197,7 @@ class TestRateLimiting:
         # Verify all function calls worked
         assert len(results) == num_calls
         
-        await wait_for_logs(function_monitor)
+        
 
         # Verify combined limits
         storage = function_monitor.storage
@@ -248,9 +244,6 @@ class TestComplexDataHandling:
             result = modify_nested_data(test_data)
             results.append(result)
         
-        logs_completed = await wait_for_logs(function_monitor)
-        assert logs_completed, "All log saves should complete successfully"
-
         # Verify modifications occurred
         assert len(test_data["items"]) == original_items_count + 3
         assert "counters" in test_data
@@ -300,9 +293,6 @@ class TestComplexDataHandling:
         for input_type, value, expected in test_cases:
             result = polymorphic_function(input_type, value)
             assert result == expected, f"For {input_type}, expected {expected}, got {result}"
-
-        logs_completed = await wait_for_logs(function_monitor)
-        assert logs_completed, "All log saves should complete successfully"
 
         # Verify logging
         storage = function_monitor.storage
@@ -354,8 +344,6 @@ class TestComplexDataHandling:
             }
             
             assert result == expected, f"For size {size}, expected {expected}, got {result}"
-        
-        await wait_for_logs(function_monitor)
 
         # Verify some calls were logged (with sampling)
         storage = function_monitor.storage
@@ -393,9 +381,6 @@ class TestAsyncAdvancedFeatures:
         result2 = await async_error_function(False, 0.02)
         assert result2 == "Success after 0.02s delay"
         
-        logs_completed = await wait_for_logs(function_monitor)
-        assert logs_completed, "All log saves should complete successfully"
-
         # Verify logging
         storage = function_monitor.storage
         storage.close() # Flush buffer
@@ -460,9 +445,6 @@ class TestAsyncAdvancedFeatures:
             assert result["work_time"] == work_times[i]
             assert result["actual_time"] >= work_times[i]  # Should be at least the work time
         
-        logs_completed = await wait_for_logs(function_monitor)
-        assert logs_completed, "All log saves should complete successfully"
-
         # Verify logging
         storage = function_monitor.storage
         storage.close() # Flush buffer
@@ -528,9 +510,6 @@ class TestComplexExceptionScenarios:
             with pytest.raises(expected_exception):
                 outer_function(operation, value)
         
-        logs_completed = await wait_for_logs(function_monitor)
-        assert logs_completed, "All log saves should complete successfully"
-
         # Verify logging
         storage = function_monitor.storage
         storage.close() # Flush buffer

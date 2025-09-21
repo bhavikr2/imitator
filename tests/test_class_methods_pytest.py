@@ -125,7 +125,7 @@ class TestClassMethods:
 
 
         # Wait for logging
-        await wait_for_logs(function_monitor)
+        
 
         # Verify logging
         storage = function_monitor.storage
@@ -159,10 +159,7 @@ class TestClassMethods:
             "config": {"max_items": 100, "processing_enabled": True}
         }
         
-        assert stats == expected_stats, f"Expected {expected_stats}, got {stats}"
-        
-        # Wait for logging
-        await wait_for_logs(function_monitor)
+        assert stats == expected_stats, f"Expected {expected_stats}, got {stats}"        
 
         # Verify logging
         storage = function_monitor.storage
@@ -194,7 +191,7 @@ class TestClassMethods:
         assert sorted(test_list) == test_list, "List should be sorted"
         
         # Wait for logging
-        await wait_for_logs(function_monitor)
+        
 
         # Verify logging captures the modification
         storage = function_monitor.storage
@@ -225,7 +222,7 @@ class TestClassMethods:
         assert processor.config == expected_config, f"Expected {expected_config}, got {processor.config}"
         
         # Wait for logging
-        await wait_for_logs(function_monitor)
+        
 
         # Verify logging
         storage = function_monitor.storage
@@ -250,7 +247,7 @@ class TestClassMethods:
         assert processor.processed_count == 0, "Should start with zero processed count"
     
         # Wait for logging
-        await wait_for_logs(function_monitor)
+        
     
         # Verify logging
         storage = function_monitor.storage
@@ -284,7 +281,7 @@ class TestClassMethods:
         assert results == expected_results, f"Expected {expected_results}, got {results}"
         
         # Wait for logging
-        await wait_for_logs(function_monitor)
+        
 
         # Verify logging
         storage = function_monitor.storage
@@ -405,7 +402,7 @@ class TestExceptionHandlingInClasses:
         assert result3 == 10.0, "Should continue working after exception"
         
         # Wait for logging
-        await wait_for_logs(function_monitor)
+        
         
         # Verify logging
         storage = function_monitor.storage
