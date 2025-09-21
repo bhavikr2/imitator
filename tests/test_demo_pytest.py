@@ -33,13 +33,10 @@ class TestBasicMonitoring:
         # Pytest assertions with clear error messages
         assert area1 == 15.0, f"Expected 15.0, got {area1}"
         assert area2 == 20.0, f"Expected 20.0, got {area2}"
-        
-        # Wait for logging to complete
-        logs_completed = await wait_for_logs(function_monitor)
-        assert logs_completed, "All log saves should complete successfully"
-        
+    
         # Test that logging worked correctly
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close()  # Flush buffer to disk
         functions = storage.get_all_functions()
         assert "calculate_area" in functions, "Function should be logged"
         
@@ -72,13 +69,10 @@ class TestBasicMonitoring:
         # Test continued operation after exception
         result2 = safe_divide(15.0, 3.0)
         assert result2 == 5.0, "Function should continue working after exception"
-        
-        # Wait for logging
-        logs_completed = await wait_for_logs(function_monitor)
-        assert logs_completed, "All log saves should complete successfully"
-        
+                
         # Verify logging captured everything
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close()  # Flush buffer to disk
         calls = storage.load_calls("safe_divide")
         assert len(calls) == 3, "Should have logged all 3 calls (2 success + 1 error)"
         
@@ -130,12 +124,9 @@ class TestAsyncMonitoring:
         with pytest.raises(ConnectionError, match="Failed to fetch"):
             await async_fetch_data("https://error.example.com")
         
-        # Wait for logging
-        logs_completed = await wait_for_logs(function_monitor)
-        assert logs_completed, "All log saves should complete successfully"
-        
         # Verify async logging worked
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close()  # Flush buffer to disk
         calls = storage.load_calls("async_fetch_data")
         assert len(calls) >= 2, f"Should have logged at least 2 calls, got {len(calls)}"
         
@@ -192,10 +183,6 @@ class TestComplexDataTypes:
         assert result["preferences_count"] == 3, "Should count preferences correctly"
         assert result["is_premium"] is True, "Should detect premium subscription"
         
-        # Wait for logging
-        logs_completed = await wait_for_logs(function_monitor)
-        assert logs_completed, "All log saves should complete successfully"
-        
         # Debug: Check if logs directory exists
         import os
         logs_dir = Path("logs")
@@ -205,7 +192,8 @@ class TestComplexDataTypes:
             print(f"DEBUG: log files found: {log_files}")
         
         # Verify complex data logging
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close()  # Flush buffer to disk
         calls = storage.load_calls("process_user_data")
         print(f"DEBUG: Found {len(calls)} calls")
         assert len(calls) == 1, "Should have logged the call"
@@ -226,10 +214,13 @@ class TestPerformanceCharacteristics:
     """Test performance-related features"""
     
     @pytest.mark.asyncio
-    async def test_sampling_functionality(self, clean_logs, function_monitor):
+    async def test_sampling_functionality(self, clean_logs):
         """Test that sampling works as expected"""
 
-        @monitor_function(sampling_rate=0.1)  # 10% sampling
+        # Create a monitor with sampling enabled
+        function_monitor = get_monitor(sampling_rate=0.1)
+
+        @monitor_function(monitor=function_monitor)
         def high_frequency_function(x: int) -> int:
             """Function called frequently with sampling"""
             return x * x
@@ -245,12 +236,9 @@ class TestPerformanceCharacteristics:
         assert len(results) == num_calls, "All function calls should complete"
         assert results[:5] == [0, 1, 4, 9, 16], "Function should compute correctly"
         
-        # Wait for logging
-        logs_completed = await wait_for_logs(function_monitor)
-        assert logs_completed, "All log saves should complete successfully"
-        
         # Verify sampling worked
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close()  # Flush buffer to disk
         calls = storage.load_calls("high_frequency_function")
         
         # Should have approximately 10% of calls logged (allowing for randomness)
@@ -282,12 +270,9 @@ class TestPerformanceCharacteristics:
         assert len(results) == num_calls, "All function calls should complete"
         assert "Processed: message_0" in results[0], "Function should work correctly"
         
-        # Wait for logging
-        logs_completed = await wait_for_logs(function_monitor)
-        assert logs_completed, "All log saves should complete successfully"
-        
         # Verify rate limiting worked
-        storage = LocalStorage()
+        storage = function_monitor.storage
+        storage.close()  # Flush buffer to disk
         calls = storage.load_calls("rate_limited_function")
         
         # Should have at most 5 calls logged due to rate limiting

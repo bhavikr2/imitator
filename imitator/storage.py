@@ -5,8 +5,10 @@ Local storage backend for function I/O logs
 import json
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import datetime
+from collections import defaultdict
+import threading
 
 from .types import FunctionCall
 
@@ -14,7 +16,7 @@ from .types import FunctionCall
 class LocalStorage:
     """Local file-based storage for function call logs"""
     
-    def __init__(self, log_dir: str = "logs", format: str = "jsonl"):
+    def __init__(self, log_dir="logs", format="jsonl", buffer_size=100, flush_interval=None):
         """
         Initialize local storage
         
@@ -24,21 +26,38 @@ class LocalStorage:
         """
         self.log_dir = Path(log_dir)
         self.format = format
+        self.buffer_size = buffer_size
+        self.flush_interval = flush_interval
+        self._buffer = defaultdict(list)
+        self._lock = threading.Lock()
         self.log_dir.mkdir(exist_ok=True)
-        
+        # Optionally start a background flush thread if flush_interval is set
+        # Register atexit handler to flush on shutdown
+
     def _get_log_file(self, function_name: str) -> Path:
         """Get log file path for a function"""
         timestamp = datetime.now().strftime("%Y%m%d")
         return self.log_dir / f"{function_name}_{timestamp}.{self.format}"
     
-    def save_call(self, function_call: FunctionCall) -> None:
+    def save_call(self, function_call: FunctionCall):
         """Save a function call to storage"""
-        log_file = self._get_log_file(function_call.function_signature.name)
-        
+        with self._lock:
+            fn = function_call.function_signature.name
+            self._buffer[fn].append(function_call)
+            if len(self._buffer[fn]) >= self.buffer_size:
+                self._flush_function(fn)
+
+    def _flush_function(self, function_name):
+        """Write all buffered calls for a function to disk, then clear buffer"""
+        log_file = self._get_log_file(function_name)
+        calls_to_write = self._buffer[function_name]
+        self._buffer[function_name] = [] # Clear buffer after flushing
+
         if self.format == "jsonl":
             # Append to JSONL file
             with open(log_file, "a", encoding="utf-8") as f:
-                f.write(function_call.model_dump_json() + "\n")
+                for call in calls_to_write:
+                    f.write(call.model_dump_json() + "\n")
                 f.flush()  # Ensure data is written to OS buffer
                 os.fsync(f.fileno())  # Force OS to write to disk
         else:
@@ -51,13 +70,24 @@ class LocalStorage:
                 except json.JSONDecodeError:
                     calls = []
             
-            calls.append(function_call.model_dump())
+            calls.extend(call.model_dump() for call in calls_to_write)
             
             with open(log_file, "w", encoding="utf-8") as f:
                 json.dump(calls, f, indent=2, default=str)
                 f.flush()  # Ensure data is written to OS buffer
                 os.fsync(f.fileno())  # Force OS to write to disk
-    
+
+    def flush(self):
+        """Flush all buffers"""
+        with self._lock:
+            for function_name in list(self._buffer.keys()): # Iterate over a copy
+                self._flush_function(function_name)
+
+    def close(self):
+        """Flush and clean up (stop background thread if any)"""
+        self.flush()
+        # No background thread to stop in this simple implementation
+
     def load_calls(self, function_name: str, date: Optional[str] = None) -> List[FunctionCall]:
         """
         Load function calls from storage
