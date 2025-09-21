@@ -1,3 +1,15 @@
+# Core dependencies
 pydantic>=2.0.0
 pytest>=7.0.0
-pytest-asyncio>=0.20.0 
+pytest-asyncio>=0.20.0
+
+# Optional database dependencies (install as needed)
+# For PostgreSQL support:
+# psycopg2-binary>=2.9.0
+
+# For MongoDB support:  
+# pymongo>=4.0.0
+
+# For Couchbase support:
+# couchbase>=4.0.0
+``` 
