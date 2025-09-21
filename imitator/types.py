@@ -2,8 +2,9 @@
 Type definitions for function monitoring and I/O logging
 """
 
-from typing import Any, Dict, List, Optional, Union
-from datetime import datetime
+from typing import Any, Dict, List, Optional, Union, Tuple
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from pydantic import BaseModel, Field
 import inspect
 
@@ -57,3 +58,29 @@ class FunctionCall(BaseModel):
     
     class Config:
         arbitrary_types_allowed = True 
+
+
+class TimeInterval(BaseModel):
+    """Time interval for querying stored function calls"""
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    time_zone: Optional[str] = None
+
+    def normalized_bounds(self) -> Tuple[datetime, Optional[datetime]]:
+        """Return start and end datetimes normalized to the specified time zone.
+
+        If time_zone is provided, interpret naive datetimes as that zone and return
+        zone-aware datetimes. If no time_zone is provided, return as-is.
+        """
+        if self.time_zone:
+            tz = ZoneInfo(self.time_zone)
+            def _to_tz(dt: Optional[datetime]) -> Optional[datetime]:
+                if dt is None:
+                    return None
+                if dt.tzinfo is None:
+                    return dt.replace(tzinfo=tz)
+                return dt.astimezone(tz)
+            start = _to_tz(self.start_time)
+            end = _to_tz(self.end_time) if self.end_time else None
+            return start, end
+        return self.start_time, self.end_time

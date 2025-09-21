@@ -33,7 +33,7 @@ install-dev:
 
 # Run tests
 test:
-	python -m pytest tests/ -v --cov=imitator --cov-report=html --cov-report=term
+	python3 -m pytest tests/ -v --cov=imitator --cov-report=html --cov-report=term
 
 # Run linting
 lint:
@@ -93,3 +93,53 @@ dev: format lint test
 pre-commit:
 	pre-commit install
 	pre-commit run --all-files 
+
+# Database server management
+DB_CONTAINER_PREFIX = imitator-db
+
+# Start all database servers
+db-start:
+	@echo "Starting database servers..."
+	docker-compose -f docker-compose.db.yml up -d
+	@echo "Database servers started!"
+	@echo "PostgreSQL: localhost:5432 (user: postgres, password: password)"
+	@echo "MongoDB: localhost:27017"
+	@echo "Couchbase: localhost:8091 (user: admin, password: password)"
+
+# Stop all database servers
+db-stop:
+	@echo "Stopping database servers..."
+	docker-compose -f docker-compose.db.yml down
+	@echo "Database servers stopped!"
+
+# Test database connections
+db-test:
+	@echo "Testing database connections..."
+	python3 -c "\
+import psycopg2; \
+conn = psycopg2.connect('postgresql://postgres:password@localhost:5432/postgres'); \
+print('✅ PostgreSQL connection successful'); \
+conn.close()"
+	python3 -c "\
+from pymongo import MongoClient; \
+client = MongoClient('mongodb://localhost:27017/'); \
+print('✅ MongoDB connection successful'); \
+client.close()"
+	@echo "Note: Couchbase test requires manual verification at http://localhost:8091"
+
+# Run physics simulation test with database streaming
+db-physics-test:
+	@echo "Running physics simulation with database streaming..."
+	python examples/physics_simulation.py
+
+# Install database dependencies
+db-install:
+	@echo "Installing optional database dependencies..."
+	pip install psycopg2-binary pymongo couchbase
+	@echo "Database dependencies installed!"
+
+# Clean database data
+db-clean:
+	@echo "Cleaning database data..."
+	docker-compose -f docker-compose.db.yml down -v
+	@echo "Database data cleaned!" 
