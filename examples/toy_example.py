@@ -12,16 +12,19 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from imitator import monitor_function, LocalStorage
 
+# Custom storage configuration
+custom_storage = LocalStorage(log_dir="advanced_logs", format="json")
+
 
 # Example 1: Simple mathematical function
-@monitor_function
+@monitor_function(storage=custom_storage)
 def add_numbers(a: int, b: int) -> int:
     """Add two numbers together"""
     return a + b
 
 
 # Example 2: Function with complex types
-@monitor_function
+@monitor_function(storage=custom_storage)
 def process_data(data: List[float], multiplier: float = 1.0) -> Dict[str, float]:
     """Process a list of numbers and return statistics"""
     if not data:
@@ -38,7 +41,7 @@ def process_data(data: List[float], multiplier: float = 1.0) -> Dict[str, float]
 
 
 # Example 3: Function that can raise exceptions
-@monitor_function
+@monitor_function(storage=custom_storage)
 def divide_numbers(a: float, b: float) -> float:
     """Divide two numbers"""
     if b == 0:
@@ -47,7 +50,7 @@ def divide_numbers(a: float, b: float) -> float:
 
 
 # Example 4: Function with multiple return types
-@monitor_function
+@monitor_function(storage=custom_storage)
 def analyze_text(text: str) -> Tuple[int, int, List[str]]:
     """Analyze text and return word count, char count, and words"""
     words = text.split()
