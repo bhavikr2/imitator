@@ -6,7 +6,7 @@ import time
 import asyncio
 import logging
 from functools import wraps
-from typing import Callable, Optional, Any
+from typing import Callable, Optional, Any, Dict, List, Set
 import threading
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -41,9 +41,9 @@ class FunctionMonitor:
         self.storage = storage or LocalStorage()
         self.sampling_rate = sampling_rate
         self.max_calls_per_minute = max_calls_per_minute
-        self._call_counts = defaultdict(list)  # Track calls per function
+        self._call_counts: Dict[str, List[datetime]] = defaultdict(list)
         self._lock = threading.Lock()
-        self._active_threads = set()  # Track active save threads
+        self._active_threads: Set[threading.Thread] = set()
 
         # Import here to avoid circular imports
         import random
@@ -98,7 +98,7 @@ class FunctionMonitor:
         signature = FunctionSignature.from_function(func)
 
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Check if we should log this call
             if not self._should_log(signature.name):
                 return func(*args, **kwargs)
@@ -185,7 +185,7 @@ class FunctionMonitor:
         signature = FunctionSignature.from_function(func)
 
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Check if we should log this call
             if not self._should_log(signature.name):
                 return await func(*args, **kwargs)
@@ -327,10 +327,10 @@ class FunctionMonitor:
 
         return traceback.format_exc()
 
-    def _save_async(self, function_call: FunctionCall):
+    def _save_async(self, function_call: FunctionCall) -> None:
         """Save function call asynchronously in a thread"""
 
-        def save_in_thread():
+        def save_in_thread() -> None:
             try:
                 self.storage.save_call(function_call)
                 logging.debug(

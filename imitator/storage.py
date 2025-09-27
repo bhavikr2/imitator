@@ -5,7 +5,7 @@ Local storage backend for function I/O logs
 import json
 import os
 from pathlib import Path
-from typing import List, Protocol
+from typing import List, Protocol, Optional, Dict, DefaultDict, Any
 from datetime import datetime, timedelta
 from collections import defaultdict
 import threading
@@ -39,7 +39,7 @@ class DatabaseConnector(Protocol):
         ...
 
     def load_calls(
-        self, function_name: str, time_interval: TimeInterval
+        self, function_name: str, time_interval: Optional[TimeInterval] = None
     ) -> List[FunctionCall]:
         """Load function calls from the database"""
         ...
@@ -53,7 +53,11 @@ class LocalStorage:
     """Local file-based storage for function call logs"""
 
     def __init__(
-        self, log_dir="logs", format="jsonl", buffer_size=100, flush_interval=None
+        self,
+        log_dir: str = "logs",
+        format: str = "jsonl",
+        buffer_size: int = 100,
+        flush_interval: Optional[float] = None,
     ):
         """
         Initialize local storage
@@ -66,7 +70,7 @@ class LocalStorage:
         self.format = format
         self.buffer_size = buffer_size
         self.flush_interval = flush_interval
-        self._buffer = defaultdict(list)
+        self._buffer: DefaultDict[str, List[FunctionCall]] = defaultdict(list)
         self._lock = threading.Lock()
         self.log_dir.mkdir(exist_ok=True)
         # Optionally start a background flush thread if flush_interval is set
@@ -77,7 +81,7 @@ class LocalStorage:
         timestamp = datetime.now().strftime("%Y%m%d")
         return self.log_dir / f"{function_name}_{timestamp}.{self.format}"
 
-    def save_call(self, function_call: FunctionCall):
+    def save_call(self, function_call: FunctionCall) -> None:
         """Save a function call to storage"""
         with self._lock:
             fn = function_call.function_signature.name
@@ -85,7 +89,7 @@ class LocalStorage:
             if len(self._buffer[fn]) >= self.buffer_size:
                 self._flush_function(fn)
 
-    def _flush_function(self, function_name):
+    def _flush_function(self, function_name: str) -> None:
         """Write all buffered calls for a function to disk, then clear buffer"""
         log_file = self._get_log_file(function_name)
         calls_to_write = self._buffer[function_name]
@@ -115,13 +119,13 @@ class LocalStorage:
                 f.flush()  # Ensure data is written to OS buffer
                 os.fsync(f.fileno())  # Force OS to write to disk
 
-    def flush(self):
+    def flush(self) -> None:
         """Flush all buffers"""
         with self._lock:
             for function_name in list(self._buffer.keys()):  # Iterate over a copy
                 self._flush_function(function_name)
 
-    def close(self):
+    def close(self) -> None:
         """Flush and clean up (stop background thread if any)"""
         self.flush()
         # No background thread to stop in this simple implementation
@@ -153,7 +157,7 @@ class LocalStorage:
         )
 
     def load_calls(
-        self, function_name: str, time_interval: TimeInterval = None
+        self, function_name: str, time_interval: Optional[TimeInterval] = None
     ) -> List[FunctionCall]:
         """
         Load function calls from storage
@@ -223,8 +227,11 @@ class DatabaseStorage(LocalStorage):
     operations"""
 
     def __init__(
-        self, connector: DatabaseConnector, buffer_size=100, flush_interval=None
-    ):
+        self, 
+        connector: DatabaseConnector, 
+        buffer_size: int = 100, 
+        flush_interval: Optional[float] = None
+    ) -> None:
         """
         Initialize database storage
 
@@ -239,13 +246,13 @@ class DatabaseStorage(LocalStorage):
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         self._connected = False
 
-    def _ensure_connected(self):
+    def _ensure_connected(self) -> None:
         """Ensure database connection is established"""
         if not self._connected:
             self.connector.connect()
             self._connected = True
 
-    def _flush_function(self, function_name):
+    def _flush_function(self, function_name: str) -> None:
         """Write all buffered calls for a function to database in background thread"""
         calls_to_write = self._buffer[function_name]
         self._buffer[function_name] = []  # Clear buffer immediately
@@ -256,7 +263,7 @@ class DatabaseStorage(LocalStorage):
                 self._save_calls_async, calls_to_write, function_name
             )
 
-    def _save_calls_async(self, calls: List[FunctionCall], function_name: str):
+    def _save_calls_async(self, calls: List[FunctionCall], function_name: str) -> None:
         """Save calls to database in background thread (non-blocking)"""
         try:
             self._ensure_connected()
@@ -268,14 +275,14 @@ class DatabaseStorage(LocalStorage):
             logging.error(f"Failed to save calls to database: {e}")
             # Optionally, you could implement retry logic here
 
-    def flush(self):
+    def flush(self) -> None:
         """Flush all buffers to database"""
         with self._lock:
             for function_name in list(self._buffer.keys()):
                 if self._buffer[function_name]:
                     self._flush_function(function_name)
 
-    def close(self):
+    def close(self) -> None:
         """Flush buffers and close database connection"""
         self.flush()
         self._executor.shutdown(wait=True)  # Wait for all background operations
@@ -284,7 +291,7 @@ class DatabaseStorage(LocalStorage):
             self._connected = False
 
     def load_calls(
-        self, function_name: str, time_interval: TimeInterval = None
+        self, function_name: str, time_interval: Optional[TimeInterval] = None
     ) -> List[FunctionCall]:
         """Load function calls from database"""
         if time_interval is None:
@@ -314,7 +321,7 @@ class PostgreSQLConnector:
         """
         self.connection_string = connection_string
         self.table_name = table_name
-        self._connection = None
+        self._connection: Optional[Any] = None
 
     def connect(self) -> None:
         """Establish connection to PostgreSQL database"""
@@ -329,7 +336,7 @@ class PostgreSQLConnector:
                 "pip install psycopg2-binary'"
             )
 
-    def _ensure_table_exists(self):
+    def _ensure_table_exists(self) -> None:
         """Ensure the function calls table exists"""
 
         create_table_query = sql.SQL(
@@ -348,9 +355,10 @@ class PostgreSQLConnector:
             """
         ).format(table=sql.Identifier(self.table_name))
 
-        with self._connection.cursor() as cursor:
-            cursor.execute(create_table_query)
-            self._connection.commit()
+        if self._connection is not None:
+            with self._connection.cursor() as cursor:
+                cursor.execute(create_table_query)
+                self._connection.commit()
 
     def disconnect(self) -> None:
         """Close PostgreSQL connection"""
@@ -399,7 +407,7 @@ class PostgreSQLConnector:
             self._connection.commit()
 
     def load_calls(
-        self, function_name: str, time_interval: TimeInterval = None
+        self, function_name: str, time_interval: Optional[TimeInterval] = None
     ) -> List[FunctionCall]:
         """Load function calls from PostgreSQL"""
         if time_interval is None:
@@ -515,9 +523,9 @@ class MongoDBConnector:
         self.connection_string = connection_string
         self.database_name = database_name
         self.collection_name = collection_name
-        self._client = None
-        self._database = None
-        self._collection = None
+        self._client: Optional[Any] = None
+        self._database: Optional[Any] = None
+        self._collection: Optional[Any] = None
 
     def connect(self) -> None:
         """Establish connection to MongoDB database"""
@@ -583,7 +591,7 @@ class MongoDBConnector:
                         continue
 
     def load_calls(
-        self, function_name: str, time_interval: TimeInterval = None
+        self, function_name: str, time_interval: Optional[TimeInterval] = None
     ) -> List[FunctionCall]:
         """Load function calls from MongoDB"""
         if time_interval is None:
@@ -592,7 +600,7 @@ class MongoDBConnector:
         if self._collection is None:
             raise ConnectionError("Database connection not established")
 
-        query = {"function_name": function_name}
+        query: Dict[str, Any] = {"function_name": function_name}
 
         start, end = time_interval.normalized_bounds()
         if end is None:
@@ -633,7 +641,9 @@ class MongoDBConnector:
         if self._collection is None:
             raise ConnectionError("Database connection not established")
 
-        return self._collection.distinct("function_name")
+        if self._collection is not None:
+            return list(self._collection.distinct("function_name"))
+        return []
 
 
 class CouchbaseConnector:
@@ -659,9 +669,9 @@ class CouchbaseConnector:
         self.bucket_name = bucket_name
         self.scope_name = scope_name
         self.collection_name = collection_name
-        self._cluster = None
-        self._bucket = None
-        self._collection = None
+        self._cluster: Optional[Any] = None
+        self._bucket: Optional[Any] = None
+        self._collection: Optional[Any] = None
 
     def connect(self) -> None:
         """Establish connection to Couchbase database"""
@@ -751,7 +761,7 @@ class CouchbaseConnector:
                 logging.error(f"Failed to save call {call.call_id} to Couchbase: {e}")
 
     def load_calls(
-        self, function_name: str, time_interval: TimeInterval = None
+        self, function_name: str, time_interval: Optional[TimeInterval] = None
     ) -> List[FunctionCall]:
         """Load function calls from Couchbase"""
         if time_interval is None:
@@ -786,8 +796,11 @@ class CouchbaseConnector:
         query += " ORDER BY timestamp"
 
         try:
-            result = self._cluster.query(query, params)
-            rows = result.rows()
+            if self._cluster is not None:
+                result = self._cluster.query(query, params)
+                rows = result.rows()
+            else:
+                raise ConnectionError("Database connection not established")
         except Exception as e:
             raise ConnectionError(f"Failed to query Couchbase: {e}")
 
@@ -842,7 +855,10 @@ class CouchbaseConnector:
         """
 
         try:
-            result = self._cluster.query(query)
-            return [row["function_name"] for row in result.rows()]
+            if self._cluster is not None:
+                result = self._cluster.query(query)
+                return [row["function_name"] for row in result.rows()]
+            else:
+                raise ConnectionError("Database connection not established")
         except Exception as e:
             raise ConnectionError(f"Failed to query Couchbase: {e}")

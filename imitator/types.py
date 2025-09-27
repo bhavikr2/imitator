@@ -2,7 +2,7 @@
 Type definitions for function monitoring and I/O logging
 """
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Callable
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from pydantic import BaseModel, Field
@@ -17,7 +17,7 @@ class FunctionSignature(BaseModel):
     return_type: Optional[str] = None
 
     @classmethod
-    def from_function(cls, func) -> "FunctionSignature":
+    def from_function(cls, func: Callable) -> "FunctionSignature":
         """Extract signature from a function"""
         sig = inspect.signature(func)
         parameters = {}
@@ -77,14 +77,19 @@ class TimeInterval(BaseModel):
         if self.time_zone:
             tz = ZoneInfo(self.time_zone)
 
-            def _to_tz(dt: Optional[datetime]) -> Optional[datetime]:
+            def _to_tz(dt: datetime) -> datetime:
+                if dt.tzinfo is None:
+                    return dt.replace(tzinfo=tz)
+                return dt.astimezone(tz)
+
+            def _to_tz_optional(dt: Optional[datetime]) -> Optional[datetime]:
                 if dt is None:
                     return None
                 if dt.tzinfo is None:
                     return dt.replace(tzinfo=tz)
                 return dt.astimezone(tz)
 
-            start = _to_tz(self.start_time)
-            end = _to_tz(self.end_time) if self.end_time else None
-            return start, end
+            start_aware = _to_tz(self.start_time)
+            end_aware = _to_tz_optional(self.end_time)
+            return start_aware, end_aware
         return self.start_time, self.end_time
