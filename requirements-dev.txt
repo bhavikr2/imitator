@@ -32,4 +32,5 @@ ipdb>=0.13.0
 tox>=4.0.0
 
 # Type checking
-types-setuptools>=65.0.0 
+types-setuptools>=65.0.0
+types-psycopg2>=2.9.0 

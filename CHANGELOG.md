@@ -7,19 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
 ### Changed
-- **BREAKING**: Rebranded from "LogAndLearn" to "Imitator"
-- Package name changed from `logandlearn` to `imitator`
-- All import statements now use `from imitator import ...`
-- Updated description to focus on monitoring and imitation capabilities
-- Updated project URLs and metadata
+
+### Fixed
+
+## [0.2.0] - 2025-09-27
 
 ### Added
-- Initial PyPI package structure
-- Comprehensive documentation and examples
-- Type hints support with py.typed marker
+- Database integration via `DatabaseStorage` with connectors:
+  - `PostgreSQLConnector` (psycopg2)
+  - `MongoDBConnector` (pymongo)
+  - `CouchbaseConnector` (couchbase SDK)
+  - Non-blocking background writes using a thread pool; automatic connection lifecycle
+- Time-interval querying with `TimeInterval` (including optional time zone) across local and database backends
 
-## [0.1.0] - 2024-01-15
+## [0.1.0] - 2025-07-14
 
 ### Added
 - Core `monitor_function` decorator for automatic I/O logging
@@ -54,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Performance analysis utilities
 - Real-world usage patterns
 
-## [0.0.1] - 2024-01-01
+## [0.0.1] - 2025-07-04
 
 ### Added
 - Initial project structure

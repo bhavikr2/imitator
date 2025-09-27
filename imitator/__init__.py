@@ -9,20 +9,20 @@ from .monitor import (
     DatabaseStorage,
     PostgreSQLConnector,
     MongoDBConnector,
-    CouchbaseConnector
+    CouchbaseConnector,
 )
 from .types import FunctionCall, FunctionSignature, IORecord
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
     "FunctionMonitor",
     "monitor_function",
-    "FunctionCall", 
+    "FunctionCall",
     "FunctionSignature",
     "IORecord",
     "LocalStorage",
     "DatabaseStorage",
     "PostgreSQLConnector",
     "MongoDBConnector",
-    "CouchbaseConnector"
-] 
+    "CouchbaseConnector",
+]

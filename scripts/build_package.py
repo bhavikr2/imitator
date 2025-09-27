@@ -10,6 +10,7 @@ import sys
 import os
 import shutil
 from pathlib import Path
+import shlex
 
 
 def run_command(command, description):
@@ -70,18 +71,20 @@ def clean_build_artifacts():
 
 def run_tests():
     """Run the test suite."""
+    py = shlex.quote(sys.executable)
     return run_command(
-        "python -m pytest tests/ -v --cov=imitator --cov-report=html --cov-report=term",
+        f"{py} -m pytest tests/ -v --cov=imitator --cov-report=html --cov-report=term",
         "Running tests with coverage"
     )
 
 
 def run_linting():
     """Run code linting."""
+    py = shlex.quote(sys.executable)
     commands = [
-        ("python -m flake8 imitator/ --max-line-length=88 --extend-ignore=E203", "Flake8 linting"),
-        ("python -m black --check imitator/", "Black code formatting check"),
-        ("python -m mypy imitator/", "MyPy type checking"),
+        (f"{py} -m flake8 imitator/ --max-line-length=88 --extend-ignore=E203", "Flake8 linting"),
+        (f"{py} -m black --check imitator/", "Black code formatting check"),
+        (f"{py} -m mypy imitator/", "MyPy type checking"),
     ]
     
     all_passed = True
@@ -94,12 +97,14 @@ def run_linting():
 
 def build_package():
     """Build the package."""
-    return run_command("python -m build", "Building package")
+    py = shlex.quote(sys.executable)
+    return run_command(f"{py} -m build", "Building package")
 
 
 def check_package():
     """Check the built package."""
-    return run_command("python -m twine check dist/*", "Checking package")
+    py = shlex.quote(sys.executable)
+    return run_command(f"{py} -m twine check dist/*", "Checking package")
 
 
 def run_examples():
@@ -116,10 +121,11 @@ def run_examples():
     ]
     
     all_passed = True
+    py = shlex.quote(sys.executable)
     for example in examples:
         example_path = example_dir / example
         if example_path.exists():
-            if not run_command(f"python {example_path}", f"Running example: {example}"):
+            if not run_command(f"{py} {example_path}", f"Running example: {example}"):
                 all_passed = False
         else:
             print(f"⚠️  Example not found: {example}")
