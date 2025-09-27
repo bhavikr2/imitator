@@ -343,3 +343,87 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 ## 📄 License
 
 Apache License 2.0 - see [LICENSE](LICENSE) file for details. 
+
+## Database Integration
+
+Imitator supports streaming function call logs to various databases. The database connectors use non-blocking background operations for optimal performance.
+
+### Setting Up Local Databases
+
+Use the provided `docker-compose.db.yml` file to start local database servers:
+
+```bash
+# Start all database servers
+make db-start
+
+# Stop all database servers  
+make db-stop
+
+# Test database connections
+make db-test
+
+# Clean database data
+make db-clean
+```
+
+This will start:
+- PostgreSQL on port 5432 (user: postgres, password: password)
+- MongoDB on port 27017  
+- Couchbase on port 8091 (user: admin, password: password)
+
+### Using Database Connectors
+
+```python
+from imitator import monitor_function, DatabaseStorage, PostgreSQLConnector, MongoDBConnector, CouchbaseConnector
+
+# PostgreSQL Example
+postgres_connector = PostgreSQLConnector(
+    connection_string="postgresql://postgres:password@localhost:5432/postgres",
+    table_name="function_calls"
+)
+postgres_storage = DatabaseStorage(postgres_connector)
+
+# MongoDB Example
+mongo_connector = MongoDBConnector(
+    connection_string="mongodb://localhost:27017/",
+    database_name="function_monitor", 
+    collection_name="calls"
+)
+mongo_storage = DatabaseStorage(mongo_connector)
+
+# Couchbase Example
+couchbase_connector = CouchbaseConnector(
+    connection_string="couchbase://localhost?username=admin&password=password",
+    bucket_name="function_bucket"
+)
+couchbase_storage = DatabaseStorage(couchbase_connector)
+
+# Monitor function with database storage
+@monitor_function(storage=postgres_storage)
+def my_function(data):
+    return process_data(data)
+```
+
+### Database Dependencies
+
+Install optional database dependencies as needed:
+
+```bash
+# Install all database dependencies
+make db-install
+
+# Or install individually
+pip install psycopg2-binary    # PostgreSQL
+pip install pymongo            # MongoDB  
+pip install couchbase          # Couchbase
+```
+
+### Connection Details
+
+The storage connection knows how to connect through the connection strings provided to each connector:
+
+- **PostgreSQL**: `postgresql://user:password@host:port/database`
+- **MongoDB**: `mongodb://host:port/`  
+- **Couchbase**: `couchbase://host1,host2?username=user&password=pass`
+
+All database operations are performed in background threads to avoid blocking your application. 

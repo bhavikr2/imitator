@@ -12,7 +12,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 from .types import FunctionCall, FunctionSignature, IORecord
-from .storage import LocalStorage
+from .storage import LocalStorage, DatabaseStorage, PostgreSQLConnector, MongoDBConnector, CouchbaseConnector
 
 
 class FunctionMonitor:
@@ -423,3 +423,14 @@ def get_monitor(storage: Optional[LocalStorage] = None,
                 max_calls_per_minute: Optional[int] = None) -> FunctionMonitor:
     """Get a function monitor instance"""
     return FunctionMonitor(storage, sampling_rate, max_calls_per_minute) 
+
+# Export all public classes
+__all__ = [
+    'FunctionMonitor',
+    'monitor_function', 
+    'LocalStorage',
+    'DatabaseStorage',
+    'PostgreSQLConnector',
+    'MongoDBConnector',
+    'CouchbaseConnector'
+] 
