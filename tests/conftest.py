@@ -78,22 +78,3 @@ def temp_storage():
     with tempfile.TemporaryDirectory() as temp_dir:
         storage = LocalStorage(log_dir=temp_dir)
         yield storage
-
-
-@pytest.fixture
-def sample_data():
-    """Fixture providing sample data for tests"""
-    return {
-        "integers": [1, 2, 3, 4, 5],
-        "floats": [1.1, 2.2, 3.3, 4.4, 5.5],
-        "strings": ["hello", "world", "test", "data"],
-        "nested_dict": {
-            "level1": {
-                "level2": {
-                    "values": [1, 2, 3]
-                }
-            }
-        },
-        "empty_list": [],
-        "mixed_types": [1, "two", 3.0, True, None]
-    } 

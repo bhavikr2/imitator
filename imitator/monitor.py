@@ -18,6 +18,7 @@ from .storage import (
     PostgreSQLConnector,
     MongoDBConnector,
     CouchbaseConnector,
+    SQLiteConnector,
 )
 
 
@@ -478,4 +479,5 @@ __all__ = [
     "PostgreSQLConnector",
     "MongoDBConnector",
     "CouchbaseConnector",
+    "SQLiteConnector",
 ]

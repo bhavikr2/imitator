@@ -10,6 +10,7 @@ from .monitor import (
     PostgreSQLConnector,
     MongoDBConnector,
     CouchbaseConnector,
+    SQLiteConnector,
 )
 from .types import FunctionCall, FunctionSignature, IORecord
 
@@ -25,4 +26,5 @@ __all__ = [
     "PostgreSQLConnector",
     "MongoDBConnector",
     "CouchbaseConnector",
+    "SQLiteConnector",
 ]

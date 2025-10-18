@@ -12,4 +12,7 @@ pytest-asyncio>=0.20.0
 
 # For Couchbase support:
 # couchbase>=4.0.0
-``` 
+
+# For SQLite support:
+# Uses Python standard library sqlite3 (no extra install required)
+# Optionally for async usage: aiosqlite>=0.19.0

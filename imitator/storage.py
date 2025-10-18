@@ -804,33 +804,156 @@ class CouchbaseConnector:
         except Exception as e:
             raise ConnectionError(f"Failed to query Couchbase: {e}")
 
-        calls = []
+
+class SQLiteConnector:
+    """SQLite database connector for function call logs"""
+
+    def __init__(self, db_path: str, table_name: str = "function_calls"):
+        """
+        Initialize SQLite connector
+
+        Args:
+            db_path: Path to the SQLite database file (e.g., "/tmp/imitator.db" or ":memory:")
+            table_name: Name of the table to store function calls
+        """
+        self.db_path = db_path
+        self.table_name = table_name
+        self._connection: Optional[Any] = None
+
+    def connect(self) -> None:
+        """Establish connection to SQLite database"""
+        import sqlite3
+
+        self._connection = sqlite3.connect(self.db_path, check_same_thread=False)
+        self._connection.execute("PRAGMA journal_mode=WAL;")
+        self._ensure_table_exists()
+
+    def _ensure_table_exists(self) -> None:
+        """Ensure the function calls table exists"""
+        if self._connection is None:
+            raise ConnectionError("Database connection not established")
+
+        create_table_query = (
+            f"CREATE TABLE IF NOT EXISTS {self.table_name} ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "call_id TEXT UNIQUE,"
+            "function_name TEXT NOT NULL,"
+            "inputs TEXT NOT NULL,"
+            "output TEXT,"
+            "timestamp_epoch REAL NOT NULL,"
+            "execution_time_ms REAL,"
+            "input_modifications TEXT,"
+            "created_at REAL DEFAULT (strftime('%s','now'))"
+            ")"
+        )
+
+        with self._connection:
+            self._connection.execute(create_table_query)
+
+    def disconnect(self) -> None:
+        """Close SQLite connection"""
+        if self._connection:
+            self._connection.close()
+            self._connection = None
+
+    def save_calls(self, calls: List[FunctionCall], function_name: str) -> None:
+        """Save function calls to SQLite in batch"""
+        if self._connection is None:
+            raise ConnectionError("Database connection not established")
+
+        insert_query = (
+            f"INSERT OR IGNORE INTO {self.table_name} "
+            "(call_id, function_name, inputs, output, timestamp_epoch, execution_time_ms, input_modifications) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)"
+        )
+
+        data = []
+        for call in calls:
+            timestamp_epoch = call.io_record.timestamp.timestamp()
+            data.append(
+                (
+                    call.call_id,
+                    function_name,
+                    json.dumps(call.io_record.inputs, default=str),
+                    (
+                        json.dumps(call.io_record.output, default=str)
+                        if call.io_record.output is not None
+                        else None
+                    ),
+                    timestamp_epoch,
+                    call.io_record.execution_time_ms,
+                    (
+                        json.dumps(call.io_record.input_modifications, default=str)
+                        if call.io_record.input_modifications
+                        else None
+                    ),
+                )
+            )
+
+        with self._connection:
+            self._connection.executemany(insert_query, data)
+
+    def load_calls(
+        self, function_name: str, time_interval: Optional[TimeInterval] = None
+    ) -> List[FunctionCall]:
+        """Load function calls from SQLite"""
+        if time_interval is None:
+            time_interval = _default_time_interval()
+
+        if self._connection is None:
+            raise ConnectionError("Database connection not established")
+
+        # Get normalized time bounds
+        start, end = time_interval.normalized_bounds()
+        start_ts = start.timestamp()
+        end_ts = end.timestamp() if end is not None else datetime.now().timestamp()
+
+        if end is not None:
+            query = (
+                "SELECT call_id, inputs, output, timestamp_epoch, execution_time_ms, input_modifications "
+                f"FROM {self.table_name} "
+                "WHERE function_name = ? AND timestamp_epoch >= ? AND timestamp_epoch <= ? "
+                "ORDER BY timestamp_epoch"
+            )
+            params: List[Any] = [function_name, start_ts, end_ts]
+        else:
+            query = (
+                "SELECT call_id, inputs, output, timestamp_epoch, execution_time_ms, input_modifications "
+                f"FROM {self.table_name} "
+                "WHERE function_name = ? AND timestamp_epoch >= ? "
+                "ORDER BY timestamp_epoch"
+            )
+            params = [function_name, start_ts]
+
+        cursor = self._connection.execute(query, params)
+        rows = cursor.fetchall()
+
+        calls: List[FunctionCall] = []
         for row in rows:
             (
-                document_id,
                 call_id,
-                inputs,
-                output,
-                timestamp_str,
+                inputs_json,
+                output_json,
+                timestamp_epoch,
                 execution_time_ms,
-                input_modifications,
+                input_modifications_json,
             ) = row
 
-            # Create FunctionSignature (simplified for loading)
             function_signature = FunctionSignature(
                 name=function_name, parameters={}, return_type=None
             )
 
-            # Parse timestamp
-            timestamp = datetime.fromisoformat(timestamp_str)
+            timestamp_dt = datetime.fromtimestamp(float(timestamp_epoch))
 
-            # Create IORecord
             io_record = IORecord(
-                inputs=inputs,
-                output=output,
-                timestamp=timestamp,
+                inputs=json.loads(inputs_json),
+                output=json.loads(output_json) if output_json is not None else None,
+                timestamp=timestamp_dt,
                 execution_time_ms=execution_time_ms,
-                input_modifications=input_modifications,
+                input_modifications=
+                    json.loads(input_modifications_json)
+                    if input_modifications_json is not None
+                    else None,
             )
 
             calls.append(
@@ -844,21 +967,10 @@ class CouchbaseConnector:
         return calls
 
     def get_all_functions(self) -> List[str]:
-        """Get list of all monitored functions from Couchbase"""
-        if self._collection is None:
+        """Get list of all monitored functions from SQLite"""
+        if self._connection is None:
             raise ConnectionError("Database connection not established")
 
-        query = f"""
-            SELECT DISTINCT function_name
-            FROM `{self.bucket_name}`.`{self.scope_name}`.`{self.collection_name}`
-            ORDER BY function_name
-        """
-
-        try:
-            if self._cluster is not None:
-                result = self._cluster.query(query)
-                return [row["function_name"] for row in result.rows()]
-            else:
-                raise ConnectionError("Database connection not established")
-        except Exception as e:
-            raise ConnectionError(f"Failed to query Couchbase: {e}")
+        query = f"SELECT DISTINCT function_name FROM {self.table_name} ORDER BY function_name"
+        cursor = self._connection.execute(query)
+        return [row[0] for row in cursor.fetchall()]
