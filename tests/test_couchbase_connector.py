@@ -126,6 +126,9 @@ class TestCouchbaseConnector:
             assert black_hole["event_horizon"] > 0
             assert black_hole["hawking_temperature"] >= 0
         
+        # Wait for all saves to complete
+        # monitor.wait_for_all_saves()
+
         # Flush buffers to ensure all calls are saved
         couchbase_storage.flush()
         couchbase_storage.close()

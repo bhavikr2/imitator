@@ -110,6 +110,9 @@ class TestSQLiteConnector:
             assert trajectory["max_height"] > 0
             assert trajectory["range"] > 0
 
+        # Wait for all saves to complete
+        # monitor.wait_for_all_saves()
+
         # Flush buffers to ensure all calls are saved
         sqlite_storage.flush()
         sqlite_storage.close()
