@@ -42,9 +42,7 @@ async def wait_for_logs(monitor: FunctionMonitor, timeout: float = 4.0) -> bool:
     
     while asyncio.get_event_loop().time() - start_time < timeout:
         with monitor._lock:
-            # Clean up finished threads before checking
-            monitor._active_threads = {t for t in monitor._active_threads if t.is_alive()}
-            if not monitor._active_threads:
+            if not monitor._active_futures:
                 return True
         
         # Asynchronously wait before the next check
