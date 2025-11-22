@@ -30,9 +30,11 @@ class TestSQLiteConnector:
 
     def test_sqlite_connection(self, sqlite_connector):
         """Test SQLite connection establishment"""
-        sqlite_connector.connect()
+        connected = sqlite_connector.connect()
+        assert connected is True
         assert sqlite_connector._connection is not None
-        sqlite_connector.disconnect()
+        disconnected = sqlite_connector.disconnect()
+        assert disconnected is True
 
     def test_physics_simulation_sqlite(self, sqlite_storage):
         """Test physics simulation with SQLite database streaming"""
@@ -114,7 +116,8 @@ class TestSQLiteConnector:
 
         # Verify calls were logged to SQLite
         connector = sqlite_storage.connector
-        connector.connect()
+        connected = connector.connect()
+        assert connected is True
 
         time_interval = TimeInterval(start_time=start_time)
 
@@ -147,7 +150,8 @@ class TestSQLiteConnector:
         }
         assert expected_functions.issubset(set(functions))
 
-        connector.disconnect()
+        disconnected = connector.disconnect()
+        assert disconnected is True
 
         return results, projectile_results
 

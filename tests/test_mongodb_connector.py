@@ -31,10 +31,12 @@ class TestMongoDBConnector:
     
     def test_mongodb_connection(self, mongodb_connector):
         """Test MongoDB connection establishment"""
-        mongodb_connector.connect()
+        connected = mongodb_connector.connect()
+        assert connected is True
         assert mongodb_connector._client is not None
         assert mongodb_connector._collection is not None
-        mongodb_connector.disconnect()
+        disconnected = mongodb_connector.disconnect()
+        assert disconnected is True
     
     def test_physics_simulation_mongodb(self, mongodb_storage, clean_logs):
         """Test physics simulation with MongoDB database streaming"""
@@ -92,7 +94,8 @@ class TestMongoDBConnector:
         
         # Verify calls were logged to MongoDB
         connector = mongodb_storage.connector
-        connector.connect()
+        connected = connector.connect()
+        assert connected is True
         
         time_interval = TimeInterval(start_time=start_time)
 
@@ -113,6 +116,7 @@ class TestMongoDBConnector:
         expected_functions = {"calculate_traffic_flow", "calculate_traffic_density", "calculate_travel_time"}
         assert expected_functions.issubset(functions)
         
-        connector.disconnect()
+        disconnected = connector.disconnect()
+        assert disconnected is True
         
         return results, travel_time_results

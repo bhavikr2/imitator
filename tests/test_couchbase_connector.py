@@ -31,9 +31,11 @@ class TestCouchbaseConnector:
         """Test Couchbase connection establishment"""
         # Note: Couchbase connection test might be skipped if server not available
         try:
-            couchbase_connector.connect()
+            connected = couchbase_connector.connect()
+            assert connected is True
             assert couchbase_connector._cluster is not None
-            couchbase_connector.disconnect()
+            disconnected = couchbase_connector.disconnect()
+            assert disconnected is True
         except Exception as e:
             pytest.skip(f"Couchbase server not available: {e}")
     
@@ -131,7 +133,8 @@ class TestCouchbaseConnector:
         # Verify calls were logged to Couchbase
         connector = couchbase_storage.connector
         try:
-            connector.connect()
+            connected = connector.connect()
+            assert connected is True
             
             # Check Schwarzschild calls
             schwarzschild_calls = connector.load_calls("calculate_schwarzschild_radius")
@@ -139,7 +142,7 @@ class TestCouchbaseConnector:
             
             # Check Hubble calls
             hubble_calls = connector.load_calls("calculate_hubble_flow_distance")
-            assert len(hubble_calls) == 3, f"Expected 3 Hubble calls, got {极en(hubble_calls)}"
+            assert len(hubble_calls) == 3, f"Expected 3 Hubble calls, got {len(hubble_calls)}"
             
             # Check black hole calls
             black_hole_calls = connector.load_calls("simulate_black_hole")
@@ -147,10 +150,11 @@ class TestCouchbaseConnector:
             
             # Verify function names
             functions = connector.get_all_functions()
-            expected_functions = {"calculate_schwarzschild_radius", "calculate_hubble极low_distance", "simulate_black_hole"}
+            expected_functions = {"calculate_schwarzschild_radius", "calculate_hubble_flow_distance", "simulate_black_hole"}
             assert expected_functions.issubset(functions)
             
-            connector.disconnect()
+            disconnected = connector.disconnect()
+            assert disconnected is True
             
         except Exception as e:
             pytest.skip(f"Couchbase server not available for verification: {e}")

@@ -29,9 +29,11 @@ class TestPostgreSQLConnector:
     
     def test_postgres_connection(self, postgres_connector):
         """Test PostgreSQL connection establishment"""
-        postgres_connector.connect()
+        connected = postgres_connector.connect()
+        assert connected is True
         assert postgres_connector._connection is not None
-        postgres_connector.disconnect()
+        disconnected = postgres_connector.disconnect()
+        assert disconnected is True
     
     def test_physics_simulation_postgres(self, postgres_storage, clean_logs):
         """Test physics simulation with PostgreSQL database streaming"""
@@ -112,7 +114,8 @@ class TestPostgreSQLConnector:
         
         # Verify calls were logged to PostgreSQL
         connector = postgres_storage.connector
-        connector.connect()
+        connected = connector.connect()
+        assert connected is True
         
         time_interval = TimeInterval(start_time=start_time)
 
@@ -133,6 +136,7 @@ class TestPostgreSQLConnector:
         expected_functions = {"calculate_kinetic_energy", "calculate_pendulum_period", "simulate_projectile_motion"}
         assert expected_functions.issubset(functions)
         
-        connector.disconnect()
+        disconnected = connector.disconnect()
+        assert disconnected is True
         
         return results, projectile_results
