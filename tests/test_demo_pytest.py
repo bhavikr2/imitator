@@ -34,6 +34,9 @@ class TestBasicMonitoring:
         assert area1 == 15.0, f"Expected 15.0, got {area1}"
         assert area2 == 20.0, f"Expected 20.0, got {area2}"
     
+        # Wait for background threads to finish saving logs
+        function_monitor.wait_for_all_saves()
+
         # Test that logging worked correctly
         storage = function_monitor.storage
         storage.close()  # Flush buffer to disk
@@ -69,6 +72,9 @@ class TestBasicMonitoring:
         # Test continued operation after exception
         result2 = safe_divide(15.0, 3.0)
         assert result2 == 5.0, "Function should continue working after exception"
+        
+        # Wait for background threads to finish saving logs
+        function_monitor.wait_for_all_saves()
                 
         # Verify logging captured everything
         storage = function_monitor.storage
@@ -124,6 +130,9 @@ class TestAsyncMonitoring:
         with pytest.raises(ConnectionError, match="Failed to fetch"):
             await async_fetch_data("https://error.example.com")
         
+        # Wait for background threads to finish saving logs
+        function_monitor.wait_for_all_saves()
+
         # Verify async logging worked
         storage = function_monitor.storage
         storage.close()  # Flush buffer to disk
@@ -191,6 +200,9 @@ class TestComplexDataTypes:
             log_files = list(logs_dir.glob("*.jsonl"))
             print(f"DEBUG: log files found: {log_files}")
         
+        # Wait for background threads to finish saving logs
+        function_monitor.wait_for_all_saves()
+
         # Verify complex data logging
         storage = function_monitor.storage
         storage.close()  # Flush buffer to disk
@@ -236,6 +248,9 @@ class TestPerformanceCharacteristics:
         assert len(results) == num_calls, "All function calls should complete"
         assert results[:5] == [0, 1, 4, 9, 16], "Function should compute correctly"
         
+        # Wait for background threads to finish saving logs
+        function_monitor.wait_for_all_saves()
+
         # Verify sampling worked
         storage = function_monitor.storage
         storage.close()  # Flush buffer to disk
@@ -270,6 +285,9 @@ class TestPerformanceCharacteristics:
         assert len(results) == num_calls, "All function calls should complete"
         assert "Processed: message_0" in results[0], "Function should work correctly"
         
+        # Wait for background threads to finish saving logs
+        function_monitor.wait_for_all_saves()
+
         # Verify rate limiting worked
         storage = function_monitor.storage
         storage.close()  # Flush buffer to disk

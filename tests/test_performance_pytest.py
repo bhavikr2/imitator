@@ -164,6 +164,10 @@ class TestPerformanceOverhead:
 
         # Verify sampling worked
         # Note: Both monitors share the same storage (function_monitor.storage)
+        # Wait for saves on both monitors
+        full_monitor.wait_for_all_saves()
+        sampled_monitor.wait_for_all_saves()
+        
         storage = function_monitor.storage
         storage.close() # Flush buffer
         
@@ -196,6 +200,8 @@ class TestPerformanceOverhead:
         assert total_time < 2.0, f"Should complete in under 2 seconds, took {total_time:.2f}s"
 
         # Verify rate limiting worked
+        rate_limited_monitor.wait_for_all_saves()
+        
         storage = function_monitor.storage
         storage.close() # Flush buffer
         calls = storage.load_calls("rate_limited_function")
@@ -247,6 +253,9 @@ class TestConcurrentPerformance:
         throughput = total_calls / total_time
         assert throughput > 100, f"Throughput {throughput:.0f} calls/sec should be > 100 calls/sec"
                 
+        # Wait for background threads to finish saving logs
+        function_monitor.wait_for_all_saves()
+
         storage = function_monitor.storage # Use the fixture's storage
         storage.close() # Flush buffer
         calls = storage.load_calls("concurrent_function")
@@ -297,6 +306,9 @@ class TestConcurrentPerformance:
         assert total_time < 10.0, f"Should complete without timeout, took {total_time:.2f}s"
         assert len(all_results) == num_workers * calls_per_worker, "All workers should complete"
         
+        # Wait for background threads to finish saving logs
+        function_monitor.wait_for_all_saves()
+
         storage = function_monitor.storage
         storage.close() # Flush buffer
         calls = storage.load_calls("heavy_concurrent_function")
@@ -403,6 +415,8 @@ class TestAsyncPerformance:
             assert result["actual_time"] >= delays[i]
 
         # Verify logging
+        async_monitor.wait_for_all_saves()
+
         storage = function_monitor.storage
         storage.close() # Flush buffer
         calls = storage.load_calls("async_worker")
@@ -449,6 +463,8 @@ class TestMemoryEfficiency:
             assert result["sum"] == expected_sum
 
         # Verify sampling worked to control memory
+        memory_monitor.wait_for_all_saves()
+
         storage = function_monitor.storage
         storage.close() # Flush buffer
         calls = storage.load_calls("process_large_data")
@@ -475,6 +491,8 @@ class TestMemoryEfficiency:
             repeated_function(i)
         
         # Verify all calls were logged
+        rotation_monitor.wait_for_all_saves()
+
         storage = function_monitor.storage
         storage.close() # Flush buffer
         calls = storage.load_calls("repeated_function")
@@ -517,6 +535,8 @@ class TestExtremeLoad:
         assert throughput > 10000, f"Throughput {throughput:.0f} calls/sec should be > 10,000 calls/sec"
 
         # Verify rate limiting worked
+        high_freq_monitor.wait_for_all_saves()
+
         storage = function_monitor.storage
         storage.close() # Flush buffer
         calls = storage.load_calls("extreme_frequency_function")
@@ -560,6 +580,8 @@ class TestExtremeLoad:
         assert len(all_results) == total_items, f"Should have {total_items} results"
         
         # Verify logging worked (with sampling)
+        stability_monitor.wait_for_all_saves()
+
         storage = function_monitor.storage
         storage.close() # Flush buffer
         calls = storage.load_calls("stability_test_function")

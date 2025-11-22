@@ -6,10 +6,11 @@ import time
 import asyncio
 import logging
 from functools import wraps
-from typing import Callable, Optional, Any, Dict, List, Set
+from typing import Callable, Optional, Any, Set, Union
 import threading
 from collections import defaultdict
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor, Future
 
 from .types import FunctionCall, FunctionSignature, IORecord
 from .storage import (
@@ -18,6 +19,7 @@ from .storage import (
     PostgreSQLConnector,
     MongoDBConnector,
     CouchbaseConnector,
+    SQLiteConnector,
 )
 
 
@@ -41,9 +43,10 @@ class FunctionMonitor:
         self.storage = storage or LocalStorage()
         self.sampling_rate = sampling_rate
         self.max_calls_per_minute = max_calls_per_minute
-        self._call_counts: Dict[str, List[datetime]] = defaultdict(list)
+        self._call_counts = defaultdict(list)  # Track calls per function
         self._lock = threading.Lock()
-        self._active_threads: Set[threading.Thread] = set()
+        self._executor = ThreadPoolExecutor(max_workers=4)
+        self._active_futures: Set[Future] = set()
 
         # Import here to avoid circular imports
         import random
@@ -98,7 +101,7 @@ class FunctionMonitor:
         signature = FunctionSignature.from_function(func)
 
         @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
+        def wrapper(*args, **kwargs):
             # Check if we should log this call
             if not self._should_log(signature.name):
                 return func(*args, **kwargs)
@@ -109,8 +112,7 @@ class FunctionMonitor:
             # Prepare inputs for logging
             inputs = self._prepare_inputs(signature, args, kwargs)
 
-            # Create deep copy of inputs for comparison (in case of in-place
-            # modification)
+            # Create deep copy of inputs for comparison (in case of in-place modification)
             import copy
 
             inputs_before = copy.deepcopy(inputs)
@@ -126,9 +128,7 @@ class FunctionMonitor:
 
                 # Check for in-place modifications
                 inputs_after = copy.deepcopy(inputs)
-                modifications = self._detect_modifications(
-                    inputs_before, inputs_after
-                )
+                modifications = self._detect_modifications(inputs_before, inputs_after)
 
                 # Prepare output for serialization
                 serializable_output = self._prepare_output(result)
@@ -185,7 +185,7 @@ class FunctionMonitor:
         signature = FunctionSignature.from_function(func)
 
         @wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        async def wrapper(*args, **kwargs):
             # Check if we should log this call
             if not self._should_log(signature.name):
                 return await func(*args, **kwargs)
@@ -210,9 +210,7 @@ class FunctionMonitor:
 
                 # Check for in-place modifications
                 inputs_after = copy.deepcopy(inputs)
-                modifications = self._detect_modifications(
-                    inputs_before, inputs_after
-                )
+                modifications = self._detect_modifications(inputs_before, inputs_after)
 
                 # Prepare output for serialization
                 serializable_output = self._prepare_output(result)
@@ -274,8 +272,7 @@ class FunctionMonitor:
         for i, arg in enumerate(args):
             if i < len(param_names):
                 param_name = param_names[i]
-                # For class methods, don't log 'self' or 'cls' -
-                # just record the class name
+                # For class methods, don't log 'self' or 'cls' - just record the class name
                 if param_name in ("self", "cls"):
                     inputs[param_name] = f"<{type(arg).__name__} instance>"
                 else:
@@ -288,8 +285,8 @@ class FunctionMonitor:
 
     def _prepare_output(self, output: Any) -> Any:
         """Prepare output for serialization, handling complex objects"""
-        # Attempt to directly serialize if it's a basic JSON type (str, int, float,
-        # bool, None) or a composite type (list, dict) containing only such types.
+        # Attempt to directly serialize if it's a basic JSON type (str, int, float, bool, None)
+        # or a composite type (list, dict) containing only such types.
         # If it's a custom object, json.dumps will raise a TypeError, which we catch.
         try:
             import json
@@ -302,8 +299,7 @@ class FunctionMonitor:
             # If it's a custom object instance, return a specific string representation.
             if hasattr(output, "__dict__"):
                 return f"<{type(output).__name__} instance>"
-            # For any other non-serializable type, fall back to generic string
-            # representation.
+            # For any other non-serializable type, fall back to generic string representation.
             return str(output)
         except ValueError:
             # Catch other potential json.dumps value errors and fall back to string.
@@ -327,36 +323,37 @@ class FunctionMonitor:
 
         return traceback.format_exc()
 
+    def _safe_save_call(self, function_call: FunctionCall) -> None:
+        """Safely save function call with error handling"""
+        try:
+            self.storage.save_call(function_call)
+            logging.debug(
+                f"Successfully saved call for {function_call.function_signature.name}"
+            )
+        except Exception as e:
+            # Log the error but don't crash the application
+            logging.error(
+                f"Failed to save call for {function_call.function_signature.name}: {e}"
+            )
+            # Optionally, you could implement retry logic here
+            # For now, we'll just log and continue
+
     def _save_async(self, function_call: FunctionCall) -> None:
-        """Save function call asynchronously in a thread"""
-
-        def save_in_thread() -> None:
-            try:
-                self.storage.save_call(function_call)
-                logging.debug(
-                    f"Successfully saved call for "
-                    f"{function_call.function_signature.name}"
-                )
-            except Exception as e:
-                # Log the error but don't crash the application
-                logging.error(
-                    f"Failed to save call for "
-                    f"{function_call.function_signature.name}: {e}"
-                )
-                # Optionally, you could implement retry logic here
-                # For now, we'll just log and continue
-            finally:
-                # Remove thread from active set when done
-                with self._lock:
-                    self._active_threads.discard(threading.current_thread())
-
-        thread = threading.Thread(target=save_in_thread)
-        thread.daemon = False  # Non-daemon so threads complete before exit
-
-        # Add to active threads set
+        """Save function call asynchronously using thread pool"""
+        
+        # Submit task to executor
+        future = self._executor.submit(self._safe_save_call, function_call)
+        
+        # Track future
         with self._lock:
-            self._active_threads.add(thread)
-        thread.start()
+            self._active_futures.add(future)
+        
+        # Remove from active set when done
+        def _callback(f: Future) -> None:
+            with self._lock:
+                self._active_futures.discard(f)
+                
+        future.add_done_callback(_callback)
 
     def wait_for_all_saves(self, timeout: float = 5.0) -> bool:
         """
@@ -374,17 +371,11 @@ class FunctionMonitor:
 
         while time.time() - start_time < timeout:
             with self._lock:
-                active_threads = list(self._active_threads)
-
-            if not active_threads:
-                return True
+                if not self._active_futures:
+                    return True
 
             # Wait a bit for threads to complete
             time.sleep(0.01)
-
-            # Clean up any finished threads
-            with self._lock:
-                self._active_threads = {t for t in self._active_threads if t.is_alive()}
 
         return False
 
@@ -417,13 +408,10 @@ def monitor_function(
 
     Args:
         func: Function to monitor (for direct decoration)
-        monitor: An existing FunctionMonitor instance to use. Other args will
-            override its settings if provided.
+        monitor: An existing FunctionMonitor instance to use. Other args will override its settings if provided.
         storage: Custom storage backend (if no monitor is provided)
-        sampling_rate: Fraction of calls to log (0.0 to 1.0), defaults to 1.0
-            (if no monitor is provided)
-        max_calls_per_minute: Maximum calls to log per minute (if no monitor is
-            provided)
+        sampling_rate: Fraction of calls to log (0.0 to 1.0), defaults to 1.0 (if no monitor is provided)
+        max_calls_per_minute: Maximum calls to log per minute (if no monitor is provided)
 
     Returns:
         Decorated function or decorator
@@ -442,8 +430,7 @@ def monitor_function(
                 if param_value is not None:
                     setattr(effective_monitor, param_name, param_value)
         else:
-            # Create new monitor with provided parameters (use default sampling_rate
-            # if None)
+            # Create new monitor with provided parameters (use default sampling_rate if None)
             effective_monitor = FunctionMonitor(
                 storage,
                 sampling_rate if sampling_rate is not None else 1.0,
@@ -478,4 +465,5 @@ __all__ = [
     "PostgreSQLConnector",
     "MongoDBConnector",
     "CouchbaseConnector",
+    "SQLiteConnector",
 ]

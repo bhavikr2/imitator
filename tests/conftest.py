@@ -42,9 +42,7 @@ async def wait_for_logs(monitor: FunctionMonitor, timeout: float = 4.0) -> bool:
     
     while asyncio.get_event_loop().time() - start_time < timeout:
         with monitor._lock:
-            # Clean up finished threads before checking
-            monitor._active_threads = {t for t in monitor._active_threads if t.is_alive()}
-            if not monitor._active_threads:
+            if not monitor._active_futures:
                 return True
         
         # Asynchronously wait before the next check
@@ -78,22 +76,3 @@ def temp_storage():
     with tempfile.TemporaryDirectory() as temp_dir:
         storage = LocalStorage(log_dir=temp_dir)
         yield storage
-
-
-@pytest.fixture
-def sample_data():
-    """Fixture providing sample data for tests"""
-    return {
-        "integers": [1, 2, 3, 4, 5],
-        "floats": [1.1, 2.2, 3.3, 4.4, 5.5],
-        "strings": ["hello", "world", "test", "data"],
-        "nested_dict": {
-            "level1": {
-                "level2": {
-                    "values": [1, 2, 3]
-                }
-            }
-        },
-        "empty_list": [],
-        "mixed_types": [1, "two", 3.0, True, None]
-    } 

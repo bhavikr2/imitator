@@ -125,9 +125,10 @@ class TestClassMethods:
 
 
         # Wait for logging
-        
+        function_monitor.wait_for_all_saves()
 
         # Verify logging
+        function_monitor.wait_for_all_saves()
         storage = function_monitor.storage
         storage.close() # Flush buffer
         calls = storage.load_calls("process_item")
@@ -162,6 +163,7 @@ class TestClassMethods:
         assert stats == expected_stats, f"Expected {expected_stats}, got {stats}"        
 
         # Verify logging
+        function_monitor.wait_for_all_saves()
         storage = function_monitor.storage
         storage.close() # Flush buffer
         calls = storage.load_calls("get_stats")
@@ -222,9 +224,10 @@ class TestClassMethods:
         assert processor.config == expected_config, f"Expected {expected_config}, got {processor.config}"
         
         # Wait for logging
-        
+        function_monitor.wait_for_all_saves()
 
         # Verify logging
+        function_monitor.wait_for_all_saves()
         storage = function_monitor.storage
         storage.close() # Flush buffer
         calls = storage.load_calls("update_config")
@@ -247,9 +250,10 @@ class TestClassMethods:
         assert processor.processed_count == 0, "Should start with zero processed count"
     
         # Wait for logging
-        
+        function_monitor.wait_for_all_saves()
     
         # Verify logging
+        function_monitor.wait_for_all_saves()
         storage = function_monitor.storage
         storage.close() # Flush buffer
         calls = storage.load_calls("create_default")
@@ -281,9 +285,10 @@ class TestClassMethods:
         assert results == expected_results, f"Expected {expected_results}, got {results}"
         
         # Wait for logging
-        
+        function_monitor.wait_for_all_saves()
 
         # Verify logging
+        function_monitor.wait_for_all_saves()
         storage = function_monitor.storage
         storage.close() # Flush buffer
         calls = storage.load_calls("validate_item")
@@ -322,6 +327,7 @@ class TestAsyncMethods:
         assert processor.async_processed_count == 1, "Should have incremented counter"
     
         # Verify logging
+        function_monitor.wait_for_all_saves()
         storage = function_monitor.storage
         storage.close() # Flush buffer
         calls = storage.load_calls("async_process_item")
@@ -351,6 +357,7 @@ class TestAsyncMethods:
             assert result["count"] == i + 1  # Sequential processing
         
         # Verify logging
+        function_monitor.wait_for_all_saves()
         storage = function_monitor.storage
         storage.close() # Flush buffer
 
@@ -402,9 +409,10 @@ class TestExceptionHandlingInClasses:
         assert result3 == 10.0, "Should continue working after exception"
         
         # Wait for logging
-        
-        
+        function_monitor.wait_for_all_saves()
+
         # Verify logging
+        function_monitor.wait_for_all_saves()
         storage = function_monitor.storage
         storage.close() # Flush buffer
         calls = storage.load_calls("divide_by_attribute")
