@@ -5,11 +5,12 @@ Local storage backend for function I/O logs
 import json
 import os
 from pathlib import Path
-from typing import List, Protocol, Optional, Dict, DefaultDict, Any
+from typing import List, Protocol, Optional, DefaultDict, Any
 from datetime import datetime, timedelta
 from collections import defaultdict
 import threading
 import concurrent.futures
+import logging
 
 from .types import FunctionCall, TimeInterval, FunctionSignature, IORecord
 from psycopg2 import sql
@@ -26,12 +27,20 @@ def _default_time_interval() -> TimeInterval:
 class DatabaseConnector(Protocol):
     """Protocol for database connectors"""
 
-    def connect(self) -> None:
-        """Establish connection to the database"""
+    def connect(self) -> bool:
+        """Establish connection to the database
+        
+        Returns:
+            True if connection was successful, False otherwise
+        """
         ...
 
-    def disconnect(self) -> None:
-        """Close database connection"""
+    def disconnect(self) -> bool:
+        """Close database connection
+        
+        Returns:
+            True if disconnection was successful, False otherwise
+        """
         ...
 
     def save_calls(self, calls: List[FunctionCall], function_name: str) -> None:
@@ -247,13 +256,23 @@ class DatabaseStorage(LocalStorage):
         self._connected = False
 
     def _ensure_connected(self) -> None:
-        """Ensure database connection is established"""
+        """Ensure database connection is established
+        
+        Raises:
+            ConnectionError: If connection cannot be established
+        """
         if not self._connected:
-            self.connector.connect()
-            self._connected = True
+            success = self.connector.connect()
+            if success:
+                self._connected = True
+            else:
+                raise ConnectionError(
+                    "Failed to establish database connection. "
+                    "Please check your connection settings."
+                )
 
     def _flush_function(self, function_name: str) -> None:
-        """Write all buffered calls for a function to database in background thread"""
+        """Write buffered calls for a function to database in background thread"""
         calls_to_write = self._buffer[function_name]
         self._buffer[function_name] = []  # Clear buffer immediately
 
@@ -263,15 +282,15 @@ class DatabaseStorage(LocalStorage):
                 self._save_calls_async, calls_to_write, function_name
             )
 
-    def _save_calls_async(self, calls: List[FunctionCall], function_name: str) -> None:
+    def _save_calls_async(
+        self, calls: List[FunctionCall], function_name: str
+    ) -> None:
         """Save calls to database in background thread (non-blocking)"""
         try:
             self._ensure_connected()
             self.connector.save_calls(calls, function_name)
         except Exception as e:
             # Log error but don't crash the application
-            import logging
-
             logging.error(f"Failed to save calls to database: {e}")
             # Optionally, you could implement retry logic here
 
@@ -288,6 +307,7 @@ class DatabaseStorage(LocalStorage):
         self._executor.shutdown(wait=True)  # Wait for all background operations
         if self._connected:
             self.connector.disconnect()
+            # Always reset connection flag to allow reconnection
             self._connected = False
 
     def load_calls(
@@ -323,48 +343,88 @@ class PostgreSQLConnector:
         self.table_name = table_name
         self._connection: Optional[Any] = None
 
-    def connect(self) -> None:
-        """Establish connection to PostgreSQL database"""
+    def connect(self) -> bool:
+        """Establish connection to PostgreSQL database
+        
+        Returns:
+            True if connection was successful, False otherwise
+        """
         try:
             import psycopg2
 
             self._connection = psycopg2.connect(self.connection_string)
-            self._ensure_table_exists()
+            table_exists = self._ensure_table_exists()
+            if not table_exists:
+                # Connection established but table creation failed
+                # Close connection and return False
+                try:
+                    self._connection.close()
+                except Exception:
+                    pass
+                self._connection = None
+                return False
+            return True
         except ImportError:
             raise ImportError(
                 "psycopg2 is required for PostgreSQL support. Install it with '"
                 "pip install psycopg2-binary'"
             )
+        except Exception as e:
+            # Log the exception for debugging
+            logging.debug(f"PostgreSQL connection failed: {e}")
+            self._connection = None
+            return False
 
-    def _ensure_table_exists(self) -> None:
-        """Ensure the function calls table exists"""
+    def _ensure_table_exists(self) -> bool:
+        """Ensure the function calls table exists
+        
+        Returns:
+            True if table exists or was created successfully, False otherwise
+        """
+        if self._connection is None:
+            return False
 
-        create_table_query = sql.SQL(
-            """
-            CREATE TABLE IF NOT EXISTS {table} (
-                id SERIAL PRIMARY KEY,
-                call_id VARCHAR(255) UNIQUE,
-                function_name VARCHAR(255) NOT NULL,
-                inputs JSONB NOT NULL,
-                output JSONB,
-                timestamp TIMESTAMP NOT NULL,
-                execution_time_ms FLOAT,
-                input_modifications JSONB,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-        ).format(table=sql.Identifier(self.table_name))
+        try:
+            create_table_query = sql.SQL(
+                """
+                CREATE TABLE IF NOT EXISTS {table} (
+                    id SERIAL PRIMARY KEY,
+                    call_id VARCHAR(255) UNIQUE,
+                    function_name VARCHAR(255) NOT NULL,
+                    inputs JSONB NOT NULL,
+                    output JSONB,
+                    timestamp TIMESTAMP NOT NULL,
+                    execution_time_ms FLOAT,
+                    input_modifications JSONB,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            ).format(table=sql.Identifier(self.table_name))
 
-        if self._connection is not None:
             with self._connection.cursor() as cursor:
                 cursor.execute(create_table_query)
                 self._connection.commit()
+            return True
+        except Exception as e:
+            # Log the exception for debugging
+            logging.debug(f"Failed to ensure table exists: {e}")
+            return False
 
-    def disconnect(self) -> None:
-        """Close PostgreSQL connection"""
+    def disconnect(self) -> bool:
+        """Close PostgreSQL connection
+        
+        Returns:
+            True if disconnection was successful, False otherwise
+        """
         if self._connection:
-            self._connection.close()
-            self._connection = None
+            try:
+                self._connection.close()
+                self._connection = None
+                return True
+            except Exception:
+                self._connection = None
+                return False
+        return True  # Already disconnected
 
     def save_calls(self, calls: List[FunctionCall], function_name: str) -> None:
         """Save function calls to PostgreSQL in batch"""
@@ -527,8 +587,12 @@ class MongoDBConnector:
         self._database: Optional[Any] = None
         self._collection: Optional[Any] = None
 
-    def connect(self) -> None:
-        """Establish connection to MongoDB database"""
+    def connect(self) -> bool:
+        """Establish connection to MongoDB database
+        
+        Returns:
+            True if connection was successful, False otherwise
+        """
         try:
             import pymongo
             from pymongo.errors import ConnectionFailure
@@ -542,6 +606,7 @@ class MongoDBConnector:
             # Create indexes for better query performance
             self._collection.create_index([("function_name", 1), ("timestamp", -1)])
             self._collection.create_index([("call_id", 1)], unique=True)
+            return True
 
         except ImportError:
             raise ImportError(
@@ -549,15 +614,35 @@ class MongoDBConnector:
                 "pip install pymongo'"
             )
         except ConnectionFailure:
-            raise ConnectionError("Failed to connect to MongoDB")
-
-    def disconnect(self) -> None:
-        """Close MongoDB connection"""
-        if self._client:
-            self._client.close()
             self._client = None
             self._database = None
             self._collection = None
+            return False
+        except Exception:
+            self._client = None
+            self._database = None
+            self._collection = None
+            return False
+
+    def disconnect(self) -> bool:
+        """Close MongoDB connection
+        
+        Returns:
+            True if disconnection was successful, False otherwise
+        """
+        if self._client:
+            try:
+                self._client.close()
+                self._client = None
+                self._database = None
+                self._collection = None
+                return True
+            except Exception:
+                self._client = None
+                self._database = None
+                self._collection = None
+                return False
+        return True  # Already disconnected
 
     def save_calls(self, calls: List[FunctionCall], function_name: str) -> None:
         """Save function calls to MongoDB in batch"""
@@ -581,7 +666,7 @@ class MongoDBConnector:
         if documents:
             try:
                 self._collection.insert_many(documents, ordered=False)
-            except Exception:
+            except Exception as e:
                 # If bulk insert fails, try individual inserts
                 for doc in documents:
                     try:
@@ -673,8 +758,12 @@ class CouchbaseConnector:
         self._bucket: Optional[Any] = None
         self._collection: Optional[Any] = None
 
-    def connect(self) -> None:
-        """Establish connection to Couchbase database"""
+    def connect(self) -> bool:
+        """Establish connection to Couchbase database
+        
+        Returns:
+            True if connection was successful, False otherwise
+        """
         try:
             from couchbase.cluster import Cluster
             from couchbase.options import ClusterOptions
@@ -712,6 +801,7 @@ class CouchbaseConnector:
             self._collection = self._bucket.scope(self.scope_name).collection(
                 self.collection_name
             )
+            return True
 
         except ImportError:
             raise ImportError(
@@ -719,15 +809,35 @@ class CouchbaseConnector:
                 "pip install couchbase'"
             )
         except CouchbaseException as e:
-            raise ConnectionError(f"Failed to connect to Couchbase: {e}")
-
-    def disconnect(self) -> None:
-        """Close Couchbase connection"""
-        if self._cluster:
-            self._cluster.close()
             self._cluster = None
             self._bucket = None
             self._collection = None
+            return False
+        except Exception:
+            self._cluster = None
+            self._bucket = None
+            self._collection = None
+            return False
+
+    def disconnect(self) -> bool:
+        """Close Couchbase connection
+        
+        Returns:
+            True if disconnection was successful, False otherwise
+        """
+        if self._cluster:
+            try:
+                self._cluster.close()
+                self._cluster = None
+                self._bucket = None
+                self._collection = None
+                return True
+            except Exception:
+                self._cluster = None
+                self._bucket = None
+                self._collection = None
+                return False
+        return True  # Already disconnected
 
     def save_calls(self, calls: List[FunctionCall], function_name: str) -> None:
         """Save function calls to Couchbase in batch"""
@@ -756,8 +866,6 @@ class CouchbaseConnector:
                 continue
             except Exception as e:
                 # Log other errors but continue
-                import logging
-
                 logging.error(f"Failed to save call {call.call_id} to Couchbase: {e}")
 
     def load_calls(
@@ -795,14 +903,53 @@ class CouchbaseConnector:
 
         query += " ORDER BY timestamp"
 
+        calls = []
         try:
             if self._cluster is not None:
                 result = self._cluster.query(query, params)
                 rows = result.rows()
             else:
                 raise ConnectionError("Database connection not established")
+
+            for row in rows:
+                (
+                    document_id,
+                    call_id,
+                    inputs,
+                    output,
+                    timestamp_str,
+                    execution_time_ms,
+                    input_modifications,
+                ) = row
+
+                # Create FunctionSignature (simplified for loading)
+                function_signature = FunctionSignature(
+                    name=function_name, parameters={}, return_type=None
+                )
+
+                # Parse timestamp
+                timestamp = datetime.fromisoformat(timestamp_str)
+
+                # Create IORecord
+                io_record = IORecord(
+                    inputs=inputs,
+                    output=output,
+                    timestamp=timestamp,
+                    execution_time_ms=execution_time_ms,
+                    input_modifications=input_modifications,
+                )
+
+                calls.append(
+                    FunctionCall(
+                        function_signature=function_signature,
+                        io_record=io_record,
+                        call_id=call_id,
+                    )
+                )
         except Exception as e:
             raise ConnectionError(f"Failed to query Couchbase: {e}")
+
+        return calls
 
 
 class SQLiteConnector:
@@ -820,41 +967,68 @@ class SQLiteConnector:
         self.table_name = table_name
         self._connection: Optional[Any] = None
 
-    def connect(self) -> None:
-        """Establish connection to SQLite database"""
-        import sqlite3
+    def connect(self) -> bool:
+        """Establish connection to SQLite database
+        
+        Returns:
+            True if connection was successful, False otherwise
+        """
+        try:
+            import sqlite3
 
-        self._connection = sqlite3.connect(self.db_path, check_same_thread=False)
-        self._connection.execute("PRAGMA journal_mode=WAL;")
-        self._ensure_table_exists()
-
-    def _ensure_table_exists(self) -> None:
-        """Ensure the function calls table exists"""
-        if self._connection is None:
-            raise ConnectionError("Database connection not established")
-
-        create_table_query = (
-            f"CREATE TABLE IF NOT EXISTS {self.table_name} ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-            "call_id TEXT UNIQUE,"
-            "function_name TEXT NOT NULL,"
-            "inputs TEXT NOT NULL,"
-            "output TEXT,"
-            "timestamp_epoch REAL NOT NULL,"
-            "execution_time_ms REAL,"
-            "input_modifications TEXT,"
-            "created_at REAL DEFAULT (strftime('%s','now'))"
-            ")"
-        )
-
-        with self._connection:
-            self._connection.execute(create_table_query)
-
-    def disconnect(self) -> None:
-        """Close SQLite connection"""
-        if self._connection:
-            self._connection.close()
+            self._connection = sqlite3.connect(self.db_path, check_same_thread=False)
+            self._connection.execute("PRAGMA journal_mode=WAL;")
+            table_exists = self._ensure_table_exists()
+            return table_exists
+        except Exception:
             self._connection = None
+            return False
+
+    def _ensure_table_exists(self) -> bool:
+        """Ensure the function calls table exists
+        
+        Returns:
+            True if table exists or was created successfully, False otherwise
+        """
+        if self._connection is None:
+            return False
+
+        try:
+            create_table_query = (
+                f"CREATE TABLE IF NOT EXISTS {self.table_name} ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                "call_id TEXT UNIQUE,"
+                "function_name TEXT NOT NULL,"
+                "inputs TEXT NOT NULL,"
+                "output TEXT,"
+                "timestamp_epoch REAL NOT NULL,"
+                "execution_time_ms REAL,"
+                "input_modifications TEXT,"
+                "created_at REAL DEFAULT (strftime('%s','now'))"
+                ")"
+            )
+
+            with self._connection:
+                self._connection.execute(create_table_query)
+            return True
+        except Exception:
+            return False
+
+    def disconnect(self) -> bool:
+        """Close SQLite connection
+        
+        Returns:
+            True if disconnection was successful, False otherwise
+        """
+        if self._connection:
+            try:
+                self._connection.close()
+                self._connection = None
+                return True
+            except Exception:
+                self._connection = None
+                return False
+        return True  # Already disconnected
 
     def save_calls(self, calls: List[FunctionCall], function_name: str) -> None:
         """Save function calls to SQLite in batch"""
@@ -863,7 +1037,8 @@ class SQLiteConnector:
 
         insert_query = (
             f"INSERT OR IGNORE INTO {self.table_name} "
-            "(call_id, function_name, inputs, output, timestamp_epoch, execution_time_ms, input_modifications) "
+            "(call_id, function_name, inputs, output, timestamp_epoch, "
+            "execution_time_ms, input_modifications) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)"
         )
 
@@ -910,15 +1085,17 @@ class SQLiteConnector:
 
         if end is not None:
             query = (
-                "SELECT call_id, inputs, output, timestamp_epoch, execution_time_ms, input_modifications "
+                "SELECT call_id, inputs, output, timestamp_epoch, "
+                "execution_time_ms, input_modifications "
                 f"FROM {self.table_name} "
-                "WHERE function_name = ? AND timestamp_epoch >= ? AND timestamp_epoch <= ? "
-                "ORDER BY timestamp_epoch"
+                "WHERE function_name = ? AND timestamp_epoch >= ? "
+                "AND timestamp_epoch <= ? ORDER BY timestamp_epoch"
             )
             params: List[Any] = [function_name, start_ts, end_ts]
         else:
             query = (
-                "SELECT call_id, inputs, output, timestamp_epoch, execution_time_ms, input_modifications "
+                "SELECT call_id, inputs, output, timestamp_epoch, "
+                "execution_time_ms, input_modifications "
                 f"FROM {self.table_name} "
                 "WHERE function_name = ? AND timestamp_epoch >= ? "
                 "ORDER BY timestamp_epoch"
@@ -971,6 +1148,9 @@ class SQLiteConnector:
         if self._connection is None:
             raise ConnectionError("Database connection not established")
 
-        query = f"SELECT DISTINCT function_name FROM {self.table_name} ORDER BY function_name"
+        query = (
+            f"SELECT DISTINCT function_name FROM {self.table_name} "
+            "ORDER BY function_name"
+        )
         cursor = self._connection.execute(query)
         return [row[0] for row in cursor.fetchall()]
