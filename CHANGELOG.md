@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.3.0] - 2025-11-23
+
+### Added
+- `SQLiteConnector` for lightweight, file-based database logging without external dependencies
+- Support for `ThreadPoolExecutor` in `FunctionMonitor` to handle async saves more efficiently
+
+### Changed
+- Refactored `FunctionMonitor` to use a thread pool instead of spawning new threads for each call, improving performance under high load
+- Improved test suite stability with `wait_for_all_saves()` synchronization
+
 ## [0.2.0] - 2025-09-27
 
 ### Added
