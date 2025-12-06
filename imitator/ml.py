@@ -36,29 +36,29 @@ class ModelTrainer:
         self.is_fitted = False
 
     def _extract_features(self, inputs: Dict[str, Any]) -> Optional[List[float]]:
-        """Extract numerical features from inputs dict"""
+        """Extract numerical features from inputs dict, handling lists/arrays and skipping non-numerics"""
         features = []
+        
+        def flatten(item):
+            if isinstance(item, (int, float)):
+                features.append(float(item))
+            elif isinstance(item, (list, tuple, np.ndarray)):
+                if isinstance(item, np.ndarray):
+                    item = item.flatten()
+                for subitem in item:
+                    flatten(subitem)
+            # Ignore other types (str, dict, objects) effectively filtering them out
+            
         for name in self.param_names:
-            # Handle 'self' or 'cls' by skipping or other logic?
-            # monitor.py replaces them with string repr. 
-            # We should probably skip non-numerical inputs for now.
             if name not in inputs:
                 continue
                 
             val = inputs[name]
-            
-            # Simple handling: only accept int/float
-            if isinstance(val, (int, float)):
-                features.append(float(val))
-            else:
-                # If we encounter a non-numerical input that is required, 
-                # this function might not be suitable for this simple trainer.
-                # For now, we return None to skip this sample.
-                return None
+            flatten(val)
         
-        # Ensure we have the right number of features?
-        # If some optional args are missing, this might break. 
-        # For Phase 1, assume consistent simple numerical signatures.
+        if not features:
+            return None
+            
         return features
 
     def add_data(self, calls: List[FunctionCall]):
