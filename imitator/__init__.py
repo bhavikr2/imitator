@@ -13,6 +13,7 @@ from .monitor import (
     SQLiteConnector,
 )
 from .types import FunctionCall, FunctionSignature, IORecord
+from .analytics import FunctionAnalyzer
 
 __version__ = "0.3.0"
 __all__ = [
@@ -27,4 +28,5 @@ __all__ = [
     "MongoDBConnector",
     "CouchbaseConnector",
     "SQLiteConnector",
+    "FunctionAnalyzer",
 ]
