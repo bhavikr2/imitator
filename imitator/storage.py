@@ -5,7 +5,7 @@ Local storage backend for function I/O logs
 import json
 import os
 from pathlib import Path
-from typing import List, Protocol, Optional, DefaultDict, Any
+from typing import List, Protocol, Optional, DefaultDict, Any, Dict
 from datetime import datetime, timedelta
 from collections import defaultdict
 import threading
@@ -145,8 +145,20 @@ class LocalStorage:
         dates_to_scan = set()
 
         if end is None:
-            # If no end date, just add the start date
-            dates_to_scan.add(start.strftime("%Y%m%d"))
+            # If no end date, scan from start date until today
+            end_date = datetime.now()
+            # Ensure end_date is tz-aware if start is
+            if start.tzinfo is not None and end_date.tzinfo is None:
+                 end_date = end_date.astimezone(start.tzinfo)
+            
+            num_days = (end_date - start).days + 1
+            # If start is in future vs now (unlikely but possible with clocks), handle it
+            if num_days < 1: 
+                num_days = 1 # At least scan start date
+                
+            for day_offset in range(num_days):
+                current_date = start + timedelta(days=day_offset)
+                dates_to_scan.add(current_date.strftime("%Y%m%d"))
         else:
             # Use for loop with date range
             num_days = (end - start).days + 1
@@ -178,6 +190,8 @@ class LocalStorage:
             time_interval = _default_time_interval()
 
         start, end = time_interval.normalized_bounds()
+        start_date_str = start.strftime("%Y%m%d")
+        end_date_str = end.strftime("%Y%m%d") if end else None
 
         # Convert time_interval to timestamps for call_id filtering if provided
         start_timestamp = start.timestamp()
@@ -187,31 +201,52 @@ class LocalStorage:
 
         calls = []
 
-        dates_to_scan = self._get_dates_to_scan(time_interval)
-        for date_str in sorted(dates_to_scan):
-            log_file = self.log_dir / f"{function_name}_{date_str}.{self.format}"
-            if not log_file.exists():
+        # List all matching files for the function
+        # Pattern: function_name_YYYYMMDD.format
+        pattern = f"{function_name}_*.{self.format}"
+        
+        # Sort files to process in chronological order
+        for log_file in sorted(self.log_dir.glob(pattern)):
+            # Extract date from filename to check if it's within range (coarse filter)
+            # Filename: name_YYYYMMDD.ext
+            try:
+                date_part = log_file.stem.split("_")[-1]
+                # Verify it is a date (8 digits)
+                if len(date_part) != 8 or not date_part.isdigit():
+                    continue
+                    
+                if date_part < start_date_str:
+                    continue
+                if end_date_str and date_part > end_date_str:
+                    continue
+            except Exception:
                 continue
 
             if self.format == "jsonl":
                 with open(log_file, "r", encoding="utf-8") as f:
                     for line in f:
                         if line.strip():
-                            call_data = json.loads(line)
+                            try:
+                                call_data = json.loads(line)
+                                call_id_timestamp = float(call_data.get("call_id", "0"))
+                                if self._within_time_interval(
+                                    call_id_timestamp, start_timestamp, end_timestamp
+                                ):
+                                    calls.append(FunctionCall.model_validate(call_data))
+                            except (json.JSONDecodeError, ValueError):
+                                continue
+            else:
+                try:
+                    with open(log_file, "r", encoding="utf-8") as f:
+                        call_data_list = json.load(f)
+                        for call_data in call_data_list:
                             call_id_timestamp = float(call_data.get("call_id", "0"))
                             if self._within_time_interval(
                                 call_id_timestamp, start_timestamp, end_timestamp
                             ):
                                 calls.append(FunctionCall.model_validate(call_data))
-            else:
-                with open(log_file, "r", encoding="utf-8") as f:
-                    call_data_list = json.load(f)
-                    for call_data in call_data_list:
-                        call_id_timestamp = float(call_data.get("call_id", "0"))
-                        if self._within_time_interval(
-                            call_id_timestamp, start_timestamp, end_timestamp
-                        ):
-                            calls.append(FunctionCall.model_validate(call_data))
+                except (json.JSONDecodeError, ValueError):
+                    continue
         return calls
 
     def get_all_functions(self) -> List[str]:

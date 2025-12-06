@@ -1,5 +1,5 @@
 """
-Imitator - Function I/O monitoring and replay library
+Imitator: Function monitoring and simulation library
 """
 
 from .monitor import (
@@ -14,7 +14,10 @@ from .monitor import (
 )
 from .types import FunctionCall, FunctionSignature, IORecord
 
+from .ml import train, TrainingDaemon
+
 __version__ = "0.3.0"
+
 __all__ = [
     "FunctionMonitor",
     "monitor_function",
@@ -27,4 +30,6 @@ __all__ = [
     "MongoDBConnector",
     "CouchbaseConnector",
     "SQLiteConnector",
+    "train",
+    "TrainingDaemon",
 ]
